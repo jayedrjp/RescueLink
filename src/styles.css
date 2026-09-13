@@ -1,0 +1,227 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * RescueLink design system — mobile-first emergency response app.
+ * Brand: Emergency Red #EF1B23, Dark Navy #071B33, Safety Green #22A447,
+ * Soft Blue #EAF4FF, background #F8FAFC.
+ * All colors are oklch tokens. Never hardcode colors in components.
+ */
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 6px);
+  --radius-md: calc(var(--radius) - 3px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 6px);
+  --radius-2xl: calc(var(--radius) + 12px);
+  --radius-3xl: calc(var(--radius) + 20px);
+  --radius-4xl: calc(var(--radius) + 28px);
+
+  --font-sans: "Plus Jakarta Sans", "Noto Sans Bengali", ui-sans-serif, system-ui, sans-serif;
+  --font-bangla: "Noto Sans Bengali", "Plus Jakarta Sans", sans-serif;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-navy: var(--navy);
+  --color-navy-foreground: var(--navy-foreground);
+  --color-safe: var(--safe);
+  --color-safe-foreground: var(--safe-foreground);
+  --color-warn: var(--warn);
+  --color-warn-foreground: var(--warn-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-surface: var(--surface);
+  --color-sidebar: var(--card);
+  --color-sidebar-foreground: var(--card-foreground);
+  --color-sidebar-primary: var(--primary);
+  --color-sidebar-primary-foreground: var(--primary-foreground);
+  --color-sidebar-accent: var(--accent);
+  --color-sidebar-accent-foreground: var(--accent-foreground);
+  --color-sidebar-border: var(--border);
+  --color-sidebar-ring: var(--ring);
+
+  --shadow-soft: 0 2px 10px -4px oklch(0.25 0.06 260 / 0.12);
+  --shadow-card: 0 8px 24px -12px oklch(0.25 0.06 260 / 0.18);
+  --shadow-nav: 0 -2px 30px -8px oklch(0.2 0.05 260 / 0.22);
+  --shadow-sos: 0 10px 28px -8px oklch(0.58 0.24 27 / 0.55);
+
+  --animate-fade-up: fade-up 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-breathe: breathe 2.8s ease-in-out infinite;
+  --animate-ripple: ripple 2.4s ease-out infinite;
+  --animate-marker-in: marker-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+:root {
+  --radius: 1rem;
+  --background: oklch(0.985 0.003 247.9);
+  --foreground: oklch(0.223 0.038 264.2);
+  --surface: oklch(1 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.223 0.038 264.2);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.223 0.038 264.2);
+
+  /* Emergency red #EF1B23 */
+  --primary: oklch(0.577 0.234 27.3);
+  --primary-foreground: oklch(0.99 0.005 250);
+
+  --secondary: oklch(0.955 0.02 250);
+  --secondary-foreground: oklch(0.223 0.038 264.2);
+  --muted: oklch(0.968 0.007 247.9);
+  --muted-foreground: oklch(0.575 0.037 257.4);
+
+  /* Soft blue #EAF4FF */
+  --accent: oklch(0.958 0.021 248);
+  --accent-foreground: oklch(0.29 0.07 258);
+
+  --destructive: oklch(0.577 0.234 27.3);
+  --destructive-foreground: oklch(0.99 0.005 250);
+
+  /* Navy #071B33 */
+  --navy: oklch(0.213 0.052 259);
+  --navy-foreground: oklch(0.985 0.003 247.9);
+
+  /* Safety green #22A447 */
+  --safe: oklch(0.606 0.157 148.5);
+  --safe-foreground: oklch(0.99 0.005 250);
+
+  --warn: oklch(0.762 0.157 65);
+  --warn-foreground: oklch(0.26 0.06 60);
+
+  --info: oklch(0.585 0.148 250);
+  --info-foreground: oklch(0.99 0.005 250);
+
+  --border: oklch(0.925 0.012 255.5);
+  --input: oklch(0.925 0.012 255.5);
+  --ring: oklch(0.577 0.234 27.3);
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: var(--shadow-sos);
+  }
+  50% {
+    transform: scale(1.045);
+    box-shadow: 0 14px 34px -6px oklch(0.58 0.24 27 / 0.7);
+  }
+}
+
+@keyframes ripple {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.55;
+  }
+  100% {
+    transform: scale(1.9);
+    opacity: 0;
+  }
+}
+
+@keyframes marker-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.7);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@utility bn {
+  font-family: var(--font-bangla);
+}
+
+@utility press {
+  transition:
+    transform 0.16s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.16s ease;
+  &:active {
+    transform: scale(0.965);
+  }
+}
+
+@utility stagger-children {
+  & > * {
+    animation: var(--animate-fade-up);
+  }
+  & > *:nth-child(2) {
+    animation-delay: 0.05s;
+  }
+  & > *:nth-child(3) {
+    animation-delay: 0.1s;
+  }
+  & > *:nth-child(4) {
+    animation-delay: 0.15s;
+  }
+  & > *:nth-child(5) {
+    animation-delay: 0.2s;
+  }
+  & > *:nth-child(6) {
+    animation-delay: 0.25s;
+  }
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    overscroll-behavior-y: none;
+  }
+
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.02em;
+  }
+}
