@@ -134,6 +134,7 @@ Shared design tokens used across the website, mobile app, and admin interface, t
 | Rowshon Jahan Poddo | Website development, admin system, UI/UX design, documentation |
 
 **Course:** CSE 416 — Software Project Design and Development
+
 **Supervisor:** Dr. Mahfida Amjad Dipa, Department of Computer Science and Engineering, UITS
 
 ---
