@@ -1,6 +1,6 @@
 # RescueLink — সাহায্য হোক সহজ
 
-RescueLink is a proposed centralized digital disaster-response platform for Bangladesh, connecting disaster-affected people with shelters, emergency services, volunteers, NGOs, and donors during floods, cyclones, storms, and other natural disasters.
+RescueLink is a proposed centralized digital disaster-response platform for Bangladesh, connecting disaster-affected people with shelters, emergency services, volunteers, NGOs, and donors during floods, cyclones, storms, and other natural disasterss.
 
 This repository is the **monorepo** for RescueLink — it contains the public website, the mobile application, and (where applicable) the admin/NGO interface.
 
