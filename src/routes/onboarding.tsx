@@ -1,108 +1,238 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
-import { HomeIcon, Siren, BellRing } from "lucide-react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 
-import { Logo } from "@/components/rl";
+import { useAuth } from "@/context/AuthContext";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/onboarding")({
   head: () => ({
     meta: [
-      { title: "Welcome to RescueLink — Find Safety Faster" },
+      { title: "Welcome to RescueLink — Emergency Disaster Response System" },
       {
         name: "description",
         content:
-          "A short tour of RescueLink: find shelters, send an SOS with your live location, and stay connected with real-time alerts.",
+          "Stay safe during emergencies with RescueLink: share your location with trusted contacts, locate nearby hospitals, police, and fire services, and send instant SOS alerts.",
       },
-      { property: "og:title", content: "Welcome to RescueLink" },
+      { property: "og:title", content: "RescueLink Onboarding" },
       {
         property: "og:description",
-        content: "Find safety faster, get help when you need it, and stay connected during disasters.",
+        content: "Stay safe during emergencies with RescueLink. Help is closer than you think.",
       },
     ],
   }),
-  component: Onboarding,
+  component: OnboardingScreen,
 });
 
-const slides = [
+export interface OnboardingSlide {
+  id: string;
+  title: string;
+  description: string;
+  imageSrc: string;
+  alt: string;
+}
+
+const ONBOARDING_SLIDES: OnboardingSlide[] = [
   {
-    icon: HomeIcon,
-    tone: "bg-safe/10 text-safe",
-    title: "Find Safety Faster",
-    body: "Find nearby shelters and emergency services with live availability, in seconds.",
+    id: "together",
+    title: "Stay Safe Together",
+    description:
+      "Share your location with trusted contacts and help each other stay safe during emergencies.",
+    imageSrc: "/images/onboarding/screen1-together.png",
+    alt: "Illustration of smartphone with map, trusted contacts avatars, and security shield",
   },
   {
-    icon: Siren,
-    tone: "bg-primary/10 text-primary",
-    title: "Get Help When You Need It",
-    body: "Send an SOS request with your live location to verified responders near you.",
+    id: "nearby",
+    title: "Find Help Nearby",
+    description:
+      "Locate nearby hospitals, police stations, and fire services when every second matters.",
+    imageSrc: "/images/onboarding/screen2-nearby.png",
+    alt: "Illustration of smartphone with map route to nearby emergency services: hospital, police, and fire",
   },
   {
-    icon: BellRing,
-    tone: "bg-accent text-info",
-    title: "Stay Connected",
-    body: "Receive real-time flood, cyclone and storm alerts for your exact area.",
+    id: "fast",
+    title: "Get Help Fast",
+    description: "Send an SOS alert with your location when you need emergency help.",
+    imageSrc: "/images/onboarding/screen3-fast.png",
+    alt: "Illustration of smartphone with glowing SOS alert button, medical cross shield, and map pin",
   },
 ];
 
-function Onboarding() {
-  const [i, setI] = useState(0);
-  const slide = slides[i]!;
-  const Icon = slide.icon;
-  const last = i === slides.length - 1;
+export function OnboardingScreen() {
+  const navigate = useNavigate();
+  const { isAuthenticated, isAdmin, profile } = useAuth();
+  const [currentIdx, setCurrentIdx] = useState(0);
+  const [navigating, setNavigating] = useState(false);
+
+  useEffect(() => {
+    try {
+      if (typeof window !== "undefined" && window.location.search.includes("reset_intro=1")) {
+        localStorage.removeItem("rescuelink_intro_completed");
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const currentSlide = ONBOARDING_SLIDES[currentIdx]!;
+  const isFirst = currentIdx === 0;
+  const isLast = currentIdx === ONBOARDING_SLIDES.length - 1;
+
+  const handleFinish = (targetPath?: string) => {
+    if (navigating) return;
+    setNavigating(true);
+
+    try {
+      if (typeof window !== "undefined") {
+        localStorage.setItem("rescuelink_intro_completed", "true");
+      }
+    } catch {
+      // ignore storage access errors (private browsing, cookies blocked, etc.)
+    }
+
+    const destination =
+      targetPath ??
+      (isAuthenticated ? (isAdmin || profile?.role === "admin" ? "/admin" : "/") : "/welcome");
+    // Replace history entry so browser Back never loops back to onboarding slides
+    navigate({ to: destination, replace: true });
+  };
+
+  const handleNext = () => {
+    if (isLast) {
+      handleFinish();
+    } else {
+      setCurrentIdx((prev) => Math.min(prev + 1, ONBOARDING_SLIDES.length - 1));
+    }
+  };
+
+  const handlePrev = () => {
+    if (!isFirst) {
+      setCurrentIdx((prev) => Math.max(prev - 1, 0));
+    }
+  };
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-[430px] flex-col bg-background px-6 pb-10 pt-8">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Logo className="h-10 w-10" />
-          <div className="leading-tight">
-            <p className="text-[15px] font-extrabold text-navy">RescueLink</p>
-            <p className="bn text-[11px] text-muted-foreground">সাহায্য হোক সহজ</p>
-          </div>
-        </div>
-        {!last ? (
-          <Link to="/" className="text-[12.5px] font-bold text-muted-foreground">
+    <div className="relative flex min-h-screen w-full flex-col justify-between overflow-x-hidden bg-[#FEFEFE] select-none text-foreground">
+      <div className="mx-auto flex min-h-screen w-full max-w-[430px] flex-col justify-between">
+        {/* Top Header with Skip Button */}
+        <header className="flex w-full items-center justify-end px-6 pt-6 sm:pt-8">
+          <button
+            type="button"
+            onClick={() => handleFinish()}
+            disabled={navigating}
+            className="press p-2 text-[15px] font-semibold text-[#0A1C3E] transition-opacity hover:opacity-75 active:scale-95 disabled:pointer-events-none"
+            aria-label="Skip introduction"
+            data-testid="skip-button"
+          >
             Skip
-          </Link>
-        ) : null}
-      </div>
+          </button>
+        </header>
 
-      <div key={i} className="animate-fade-up flex flex-1 flex-col items-center justify-center text-center">
-        <span className={`grid h-28 w-28 place-items-center rounded-[36px] ${slide.tone}`}>
-          <Icon className="h-12 w-12" />
-        </span>
-        <h1 className="mt-9 text-[27px] font-extrabold leading-tight text-navy">{slide.title}</h1>
-        <p className="mt-3 max-w-[300px] text-[14.5px] leading-relaxed text-muted-foreground">
-          {slide.body}
-        </p>
-      </div>
-
-      <div className="mb-7 flex justify-center gap-2">
-        {slides.map((_, idx) => (
-          <span
-            key={idx}
-            className={`h-2 rounded-full transition-all duration-300 ${
-              idx === i ? "w-7 bg-primary" : "w-2 bg-border"
-            }`}
-          />
-        ))}
-      </div>
-
-      {last ? (
-        <Link
-          to="/permissions"
-          className="press flex h-14 w-full items-center justify-center rounded-2xl bg-primary text-[15px] font-bold text-primary-foreground shadow-[var(--shadow-sos)]"
+        {/* Center Content: Illustration, Heading & Description */}
+        <main
+          key={currentSlide.id}
+          className="flex flex-1 flex-col items-center justify-center px-6 pb-6 pt-2 text-center animate-fade-in"
         >
-          Get Started
-        </Link>
-      ) : (
-        <button
-          onClick={() => setI(i + 1)}
-          className="press h-14 w-full rounded-2xl bg-navy text-[15px] font-bold text-navy-foreground"
-        >
-          Continue
-        </button>
-      )}
+          {/* Main Illustration */}
+          <div className="relative flex h-[230px] sm:h-[270px] w-full max-w-[340px] items-center justify-center">
+            <img
+              src={currentSlide.imageSrc}
+              alt={currentSlide.alt}
+              className="max-h-full max-w-full object-contain pointer-events-none drop-shadow-sm transition-all duration-300"
+              loading="eager"
+            />
+          </div>
+
+          {/* Heading */}
+          <h1 className="mt-6 text-center text-[26px] sm:text-[28px] font-bold text-[#0A1C3E] tracking-tight">
+            {currentSlide.title}
+          </h1>
+
+          {/* Description */}
+          <p className="mt-3 max-w-[310px] text-center text-[14px] sm:text-[14.5px] leading-relaxed text-[#4A5568]">
+            {currentSlide.description}
+          </p>
+        </main>
+
+        {/* Deep Navy Bottom Panel with Symmetrical Wave Edge */}
+        <footer className="relative w-full overflow-hidden">
+          {/* Smooth Curved Wave SVG Edge */}
+          <svg
+            viewBox="0 0 375 70"
+            preserveAspectRatio="none"
+            className="block h-12 sm:h-14 w-full text-[#14305E]"
+            fill="currentColor"
+            aria-hidden="true"
+          >
+            <path d="M 0 55 C 60 25 110 25 180 50 C 250 75 320 50 375 0 L 375 70 L 0 70 Z" />
+          </svg>
+
+          {/* Navy Blue Controls Bar */}
+          <div className="bg-[#14305E] px-6 pb-[max(28px,env(safe-area-inset-bottom))] pt-1">
+            <div className="flex h-16 items-center justify-between">
+              {/* Previous Button (Left Circle) */}
+              <button
+                type="button"
+                onClick={handlePrev}
+                disabled={isFirst || navigating}
+                aria-label="Previous slide"
+                data-testid="onboarding-prev-btn"
+                className={cn(
+                  "press flex h-[50px] w-[50px] items-center justify-center rounded-full bg-white text-[#14305E] shadow-lg transition-all active:scale-95",
+                  isFirst
+                    ? "opacity-0 pointer-events-none cursor-default"
+                    : "hover:bg-white/95 cursor-pointer",
+                )}
+              >
+                <ArrowLeft className="h-5 w-5 stroke-[2.5]" />
+              </button>
+
+              {/* Pagination Dots (Center) */}
+              <div
+                className="flex items-center gap-2.5"
+                role="tablist"
+                aria-label="Onboarding slide indicators"
+              >
+                {ONBOARDING_SLIDES.map((slide, idx) => {
+                  const isActive = idx === currentIdx;
+                  return (
+                    <button
+                      key={slide.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={isActive}
+                      onClick={() => {
+                        if (!navigating) setCurrentIdx(idx);
+                      }}
+                      aria-label={`Go to slide ${idx + 1}: ${slide.title}`}
+                      data-testid={`pagination-dot-${idx + 1}`}
+                      className={cn(
+                        "rounded-full transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-white",
+                        isActive
+                          ? "h-2.5 w-2.5 bg-white shadow-sm"
+                          : "h-2 w-2 bg-[#4E6B95] hover:bg-white/60 cursor-pointer",
+                      )}
+                    />
+                  );
+                })}
+              </div>
+
+              {/* Next / Get Started Action (Right Circle) */}
+              <button
+                type="button"
+                onClick={handleNext}
+                disabled={navigating}
+                aria-label={isLast ? "Get Started" : "Next slide"}
+                data-testid={isLast ? "get-started-button" : "onboarding-next-btn"}
+                className="press flex h-[50px] w-[50px] items-center justify-center rounded-full bg-white text-[#14305E] shadow-lg transition-all hover:bg-white/95 active:scale-95 cursor-pointer"
+              >
+                <ArrowRight className="h-5 w-5 stroke-[2.5]" />
+                <span className="sr-only">{isLast ? "Get Started" : "Next"}</span>
+              </button>
+            </div>
+          </div>
+        </footer>
+      </div>
     </div>
   );
 }

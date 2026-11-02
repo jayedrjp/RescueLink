@@ -1,12 +1,13 @@
-import { Link } from "@tanstack/react-router";
-import { ChevronLeft, Bell } from "lucide-react";
+import { Link, useCanGoBack } from "@tanstack/react-router";
+import { Bell } from "lucide-react";
 import type { ReactNode } from "react";
 
-import logoAsset from "@/assets/rescuelink-logo.png.asset.json";
 import shelter1 from "@/assets/shelter-1.jpg";
 import shelter2 from "@/assets/shelter-2.jpg";
 import shelter3 from "@/assets/shelter-3.jpg";
 import { cn } from "@/lib/utils";
+import { BackButton } from "@/components/BackButton";
+import type { BackTarget } from "@/lib/navigation";
 
 export const shelterImages: Record<string, string> = {
   "shelter-1": shelter1,
@@ -17,7 +18,7 @@ export const shelterImages: Record<string, string> = {
 export function Logo({ className }: { className?: string }) {
   return (
     <img
-      src={logoAsset.url}
+      src="/rescuelink-logo.png"
       alt="RescueLink logo"
       className={cn("h-9 w-9 object-contain", className)}
     />
@@ -58,33 +59,41 @@ export function TopBar({
   subtitle,
   back = "/",
   right,
+  hideBack = false,
+  hideBackWhenNoHistory = false,
+  onBack,
 }: {
   title: string;
   subtitle?: string;
-  back?: string;
+  /** Fallback destination, used ONLY when there is no history to go back to. */
+  back?: BackTarget;
   right?: ReactNode;
+  /** Never show the back arrow (root screens). */
+  hideBack?: boolean;
+  /** Show the back arrow only if there is somewhere to go back to. */
+  hideBackWhenNoHistory?: boolean;
+  /** Replaces the default history-back behaviour. */
+  onBack?: () => void;
 }) {
+  const canGoBack = useCanGoBack();
+  const showBack = !hideBack && (!hideBackWhenNoHistory || canGoBack);
   return (
     <header className="sticky top-0 z-30 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-border/70 bg-surface/90 px-4 py-3 backdrop-blur-xl">
-      <Link
-        to={back}
-        aria-label="Go back"
-        className="press grid h-11 w-11 shrink-0 place-items-center rounded-full bg-muted text-foreground"
-      >
-        <ChevronLeft className="h-5 w-5" />
-      </Link>
+      {showBack ? (
+        <BackButton fallback={back} {...(onBack ? { onBack } : {})} />
+      ) : (
+        <span aria-hidden className="h-11 w-11" />
+      )}
       <div className="min-w-0">
         <h1 className="truncate text-[17px] font-bold text-navy">{title}</h1>
-        {subtitle ? (
-          <p className="truncate text-xs text-muted-foreground">{subtitle}</p>
-        ) : null}
+        {subtitle ? <p className="truncate text-xs text-muted-foreground">{subtitle}</p> : null}
       </div>
       <div className="shrink-0">{right}</div>
     </header>
   );
 }
 
-export function NotificationButton() {
+export function NotificationButton({ hasUnread = true }: { hasUnread?: boolean } = {}) {
   return (
     <Link
       to="/alerts"
@@ -92,7 +101,9 @@ export function NotificationButton() {
       className="press relative grid h-11 w-11 shrink-0 place-items-center rounded-full bg-muted"
     >
       <Bell className="h-5 w-5 text-navy" />
-      <span className="absolute right-2.5 top-2.5 h-2.5 w-2.5 rounded-full bg-primary ring-2 ring-surface" />
+      {hasUnread ? (
+        <span className="absolute right-2.5 top-2.5 h-2.5 w-2.5 rounded-full bg-primary ring-2 ring-surface" />
+      ) : null}
     </Link>
   );
 }
@@ -118,13 +129,7 @@ export function SectionHeader({
   );
 }
 
-export function Card({
-  children,
-  className,
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
+export function Card({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <div
       className={cn(
@@ -167,9 +172,14 @@ export function Pill({
   );
 }
 
-export function OccupancyBar({ value, tone }: { value: number; tone: "open" | "limited" | "full" }) {
-  const color =
-    tone === "open" ? "bg-safe" : tone === "limited" ? "bg-warn" : "bg-primary";
+export function OccupancyBar({
+  value,
+  tone,
+}: {
+  value: number;
+  tone: "open" | "limited" | "full";
+}) {
+  const color = tone === "open" ? "bg-safe" : tone === "limited" ? "bg-warn" : "bg-primary";
   return (
     <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
       <div

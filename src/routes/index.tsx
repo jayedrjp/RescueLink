@@ -1,4 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
 import {
   Siren,
   HomeIcon,
@@ -12,12 +13,71 @@ import {
   ChevronRight,
   HeartHandshake,
   HandCoins,
+  ShieldCheck,
 } from "lucide-react";
 
-import { BrandRow, Card, NotificationButton, OccupancyBar, Pill, Screen, SectionHeader, shelterImages } from "@/components/rl";
-import { liveUpdates, shelters } from "@/lib/data";
+import {
+  BrandRow,
+  Card,
+  NotificationButton,
+  OccupancyBar,
+  Pill,
+  Screen,
+  SectionHeader,
+  shelterImages,
+} from "@/components/rl";
+import {
+  getStoredAlerts,
+  getStoredShelters,
+  safeOccupancyPercent,
+  type Alert,
+  type Shelter,
+} from "@/lib/data";
+import { subscribeToAlerts, subscribeToShelters } from "@/lib/firebase/firestore";
+import { calculateDistanceKm } from "@/lib/map/places";
+import { mapSearchFor } from "@/lib/map-links";
+import { useAuth } from "@/context/AuthContext";
+import { useWeather } from "@/lib/weather/use-weather";
+import { WeatherWidget } from "@/components/WeatherWidget";
+import { getAuthSnapshot } from "@/lib/auth-store";
+import {
+  evaluateWeatherNotification,
+  dispatchInAppWeatherNotification,
+  hasUnreadWeatherNotifications,
+} from "@/lib/weather/weather-notifications";
+import { getCurrentDevicePosition } from "@/lib/location";
 
 export const Route = createFileRoute("/")({
+  beforeLoad: () => {
+    if (typeof window === "undefined") return;
+
+    // Controlled dev reset: ?reset_intro=1 clears onboarding state for testing
+    try {
+      if (window.location.search.includes("reset_intro=1")) {
+        localStorage.removeItem("rescuelink_intro_completed");
+      }
+    } catch {
+      // ignore
+    }
+
+    let completedIntro = false;
+    try {
+      completedIntro = localStorage.getItem("rescuelink_intro_completed") === "true";
+    } catch {
+      completedIntro = false;
+    }
+
+    // Never redirect authenticated users to onboarding
+    const snapshot = getAuthSnapshot();
+    if (snapshot.isAuthenticated) {
+      return;
+    }
+
+    // First app launch: if onboarding is not completed, redirect immediately to /onboarding
+    if (!completedIntro) {
+      throw redirect({ to: "/onboarding", replace: true });
+    }
+  },
   head: () => ({
     meta: [
       { title: "RescueLink — Emergency Help, Shelters & Disaster Alerts" },
@@ -39,8 +99,20 @@ export const Route = createFileRoute("/")({
 
 const quickActions = [
   { to: "/sos", icon: Siren, title: "Send SOS", desc: "Get emergency help", tone: "primary" },
-  { to: "/shelters", icon: HomeIcon, title: "Find Shelter", desc: "Find nearby safe places", tone: "safe" },
-  { to: "/services", icon: Hospital, title: "Emergency Services", desc: "Hospitals, ambulance, police & fire", tone: "info" },
+  {
+    to: "/shelters",
+    icon: HomeIcon,
+    title: "Find Shelter",
+    desc: "Find nearby safe places",
+    tone: "safe",
+  },
+  {
+    to: "/services",
+    icon: Hospital,
+    title: "Emergency Services",
+    desc: "Hospitals, ambulance, police & fire",
+    tone: "info",
+  },
   { to: "/map", icon: MapIcon, title: "Live Map", desc: "View disaster map", tone: "navy" },
 ] as const;
 
@@ -60,40 +132,244 @@ const toneRing: Record<string, string> = {
 };
 
 function HomeScreen() {
+  const navigate = useNavigate();
+  const { isAuthenticated, user, profile, loading, isAdmin } = useAuth();
+
+  const [liveShelters, setLiveShelters] = useState<Shelter[]>(() => getStoredShelters());
+  const [liveAlerts, setLiveAlerts] = useState<Alert[]>(() => getStoredAlerts());
+  const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
+
+  const {
+    weather,
+    loading: weatherLoading,
+    error: weatherError,
+    isRefreshing: weatherRefreshing,
+    refetch: refetchWeather,
+  } = useWeather({
+    coords: userCoords,
+    locationName: userCoords ? "Current Location" : "Dhaka, Bangladesh",
+  });
+
+  useEffect(() => {
+    const unsubShelters = subscribeToShelters((data) => setLiveShelters(data));
+    const unsubAlerts = subscribeToAlerts((data) => setLiveAlerts(data));
+    getCurrentDevicePosition({ timeout: 5000, maximumAge: 60000 })
+      .then((pos) => setUserCoords({ lat: pos.lat, lng: pos.lng }))
+      .catch(() => {});
+    return () => {
+      unsubShelters();
+      unsubAlerts();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (weather) {
+      const notif = evaluateWeatherNotification(weather);
+      if (notif) {
+        dispatchInAppWeatherNotification(notif);
+      }
+    }
+  }, [weather]);
+
+  const hasUnread = useMemo(() => {
+    return liveAlerts.length > 0 || hasUnreadWeatherNotifications();
+  }, [liveAlerts]);
+
+  const topAlert = useMemo(() => {
+    return (
+      liveAlerts.find((a) => a.severity === "critical") ||
+      liveAlerts.find((a) => a.severity === "warning") ||
+      liveAlerts[0]
+    );
+  }, [liveAlerts]);
+
+  const nearbyShelters = useMemo(() => {
+    return liveShelters.map((s) => {
+      let distanceKm = s.distanceKm;
+      if (userCoords && s.coordinates) {
+        distanceKm = calculateDistanceKm(userCoords, s.coordinates);
+      }
+      return { ...s, distanceKm };
+    });
+  }, [liveShelters, userCoords]);
+
+  const dynamicUpdates = useMemo(() => {
+    const list: Array<{
+      id: string;
+      tone: "critical" | "warning" | "safe" | "info";
+      text: string;
+      time: string;
+    }> = [];
+
+    if (topAlert) {
+      list.push({
+        id: `alert-${topAlert.id}`,
+        tone:
+          topAlert.severity === "critical"
+            ? "critical"
+            : topAlert.severity === "warning"
+              ? "warning"
+              : "info",
+        text: `${topAlert.title}: ${topAlert.body}`,
+        time: topAlert.time || "Active",
+      });
+    }
+
+    if (weather) {
+      const isSevere = weather.current.condition.isSevere;
+      list.push({
+        id: "weather-cond",
+        tone: isSevere ? "warning" : "info",
+        text: `Live Weather: ${weather.current.condition.label} (${weather.current.temperature}°C). Wind speed: ${weather.current.windSpeed} km/h.`,
+        time: "Now",
+      });
+
+      const rain = weather.current.precipitation;
+      list.push({
+        id: "weather-precip",
+        tone: rain > 5 ? "warning" : rain > 0 ? "info" : "safe",
+        text:
+          rain > 0
+            ? `Rainfall recorded: ${rain} mm in the last hour.`
+            : "Precipitation clear: no significant rainfall recorded.",
+        time: "1 hr",
+      });
+
+      if (weather.daily[0]) {
+        list.push({
+          id: "weather-daily",
+          tone: "info",
+          text: `Today's temperature range: High ${weather.daily[0].maxTemp}°C / Low ${weather.daily[0].minTemp}°C.`,
+          time: "Today",
+        });
+      }
+    }
+
+    const fallbackUpdates = [
+      {
+        id: "op-1",
+        tone: "safe" as const,
+        text: "Emergency response network operational · Weather monitoring active.",
+        time: "Active",
+      },
+      {
+        id: "op-2",
+        tone: "info" as const,
+        text: "Dial 999 for national emergency response services.",
+        time: "Emergency",
+      },
+    ];
+
+    return list.length > 0 ? list : fallbackUpdates;
+  }, [topAlert, weather]);
+
+  useEffect(() => {
+    if (loading) return;
+
+    if (!isAuthenticated) {
+      let completedIntro = false;
+      try {
+        if (typeof window !== "undefined") {
+          completedIntro = localStorage.getItem("rescuelink_intro_completed") === "true";
+        }
+      } catch {
+        completedIntro = false;
+      }
+
+      if (!completedIntro) {
+        navigate({ to: "/onboarding", replace: true });
+      } else {
+        navigate({ to: "/welcome", replace: true });
+      }
+    } else if (isAdmin || profile?.role === "admin") {
+      navigate({ to: "/admin", replace: true });
+    }
+  }, [isAuthenticated, isAdmin, profile, loading, navigate]);
+
+  if (loading || !isAuthenticated || isAdmin || profile?.role === "admin") {
+    return null;
+  }
+
+  const displayName = profile?.displayName || user?.displayName || "Citizen";
+
   return (
     <Screen>
       <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 pt-5">
         <BrandRow />
-        <NotificationButton />
+        <NotificationButton hasUnread={hasUnread} />
       </header>
 
       <div className="px-4 pt-4">
-        <p className="text-xs font-semibold text-muted-foreground">📍 Dhaka, Bangladesh</p>
+        <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+          <span>📍 {weather?.locationName || "Dhaka, Bangladesh"}</span>
+          {weather && (
+            <span
+              className={`rounded-full px-1.5 py-0.5 text-[9.5px] font-bold ${
+                weather.isFallbackLocation
+                  ? "bg-muted text-muted-foreground"
+                  : "bg-safe/12 text-safe"
+              }`}
+            >
+              {weather.isFallbackLocation ? "Default Area" : "GPS"}
+            </span>
+          )}
+        </p>
         <h1 className="mt-1 text-[26px] font-extrabold leading-tight text-navy">
-          Stay Safe, Jayed 👋
+          Stay Safe, {displayName} 👋
         </h1>
       </div>
 
       <section className="px-4 pt-4">
-        <div className="animate-fade-up rounded-3xl bg-primary p-4 text-primary-foreground shadow-[var(--shadow-sos)]">
-          <div className="flex items-start gap-3">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-primary-foreground/15">
-              <AlertTriangle className="h-5 w-5" />
-            </span>
-            <div className="min-w-0">
-              <p className="text-[15px] font-extrabold">⚠️ Flash Flood Warning</p>
-              <p className="mt-1 text-[13px] leading-relaxed text-primary-foreground/85">
-                Heavy rainfall is expected in your area. Stay alert and stay safe.
-              </p>
+        {topAlert ? (
+          <div
+            className={`animate-fade-up rounded-3xl p-4 ${
+              topAlert.severity === "critical"
+                ? "bg-primary text-primary-foreground shadow-[var(--shadow-sos)]"
+                : topAlert.severity === "warning"
+                  ? "bg-warn text-warn-foreground"
+                  : "bg-navy text-white"
+            }`}
+          >
+            <div className="flex items-start gap-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-white/20">
+                <AlertTriangle className="h-5 w-5" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[15px] font-extrabold">{topAlert.title}</p>
+                <p className="mt-1 text-[13px] leading-relaxed opacity-90">{topAlert.body}</p>
+              </div>
+            </div>
+            <Link
+              to="/alerts"
+              className="press mt-4 flex h-11 items-center justify-center rounded-2xl bg-white text-[13px] font-bold text-navy"
+            >
+              View All Alerts
+            </Link>
+          </div>
+        ) : (
+          <div className="animate-fade-up rounded-3xl bg-safe/12 p-4 text-safe border border-safe/20">
+            <div className="flex items-center gap-3">
+              <ShieldCheck className="h-6 w-6 shrink-0" />
+              <div>
+                <p className="text-[14px] font-bold text-navy">All Clear in Your Area</p>
+                <p className="text-xs text-muted-foreground">
+                  No active emergency warnings currently active for Dhaka.
+                </p>
+              </div>
             </div>
           </div>
-          <Link
-            to="/alerts"
-            className="press mt-4 flex h-11 items-center justify-center rounded-2xl bg-primary-foreground text-[13px] font-bold text-primary"
-          >
-            View Details
-          </Link>
-        </div>
+        )}
+      </section>
+
+      {/* Real-time Weather Observations & Forecast (Open-Meteo) */}
+      <section className="px-4 pt-4">
+        <WeatherWidget
+          weather={weather}
+          loading={weatherLoading}
+          error={weatherError}
+          isRefreshing={weatherRefreshing}
+          onRefresh={refetchWeather}
+        />
       </section>
 
       <section className="px-4 pt-7">
@@ -118,57 +394,70 @@ function HomeScreen() {
       <section className="px-4 pt-7">
         <SectionHeader title="Nearby Shelters" actionLabel="See all" to="/shelters" />
         <div className="stagger-children space-y-3">
-          {shelters.slice(0, 3).map((s) => (
-            <Card key={s.id} className="p-0">
-              <img
-                src={shelterImages[s.image]}
-                alt={s.name}
-                loading="lazy"
-                width={1024}
-                height={640}
-                className="h-32 w-full rounded-t-3xl object-cover"
-              />
-              <div className="p-4">
-                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-[15px] font-bold text-navy">{s.name}</p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      {s.distanceKm} km away · {s.occupied} / {s.capacity} occupied
-                    </p>
+          {nearbyShelters.slice(0, 3).map((s) => {
+            const pct = safeOccupancyPercent(s.occupied, s.capacity);
+            const imageSrc = shelterImages[s.image] || shelterImages["shelter-1"];
+            return (
+              <Card key={s.id} className="p-0">
+                <img
+                  src={imageSrc}
+                  alt={s.name}
+                  loading="lazy"
+                  width={1024}
+                  height={640}
+                  className="h-32 w-full rounded-t-3xl object-cover"
+                />
+                <div className="p-4">
+                  <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-[15px] font-bold text-navy">{s.name}</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        {s.distanceKm !== undefined
+                          ? `${s.distanceKm} km away`
+                          : "Distance approximate"}{" "}
+                        · {s.occupied} / {s.capacity} occupied
+                      </p>
+                    </div>
+                    <Pill tone={s.status}>{s.status}</Pill>
                   </div>
-                  <Pill tone={s.status}>{s.status}</Pill>
-                </div>
-                <div className="mt-3">
-                  <OccupancyBar value={(s.occupied / s.capacity) * 100} tone={s.status} />
-                </div>
-                <div className="mt-3 flex flex-wrap gap-1.5">
-                  {s.facilities.map((f) => (
-                    <span
-                      key={f}
-                      className="rounded-full bg-muted px-2.5 py-1 text-[11px] font-semibold text-muted-foreground"
+                  <div className="mt-3">
+                    <OccupancyBar value={pct} tone={s.status} />
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {s.facilities.map((f) => (
+                      <span
+                        key={f}
+                        className="rounded-full bg-muted px-2.5 py-1 text-[11px] font-semibold text-muted-foreground"
+                      >
+                        {f}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    <Link
+                      to="/shelters/$shelterId"
+                      params={{ shelterId: s.id }}
+                      className="press flex h-11 items-center justify-center rounded-2xl bg-muted text-[13px] font-bold text-navy"
                     >
-                      {f}
-                    </span>
-                  ))}
+                      View Details
+                    </Link>
+                    <Link
+                      to="/map"
+                      search={mapSearchFor({
+                        id: s.id,
+                        name: s.name,
+                        kind: "shelter",
+                        coordinates: s.coordinates,
+                      })}
+                      className="press flex h-11 items-center justify-center rounded-2xl bg-navy text-[13px] font-bold text-navy-foreground"
+                    >
+                      Get Directions
+                    </Link>
+                  </div>
                 </div>
-                <div className="mt-4 grid grid-cols-2 gap-2">
-                  <Link
-                    to="/shelters/$shelterId"
-                    params={{ shelterId: s.id }}
-                    className="press flex h-11 items-center justify-center rounded-2xl bg-muted text-[13px] font-bold text-navy"
-                  >
-                    View Details
-                  </Link>
-                  <Link
-                    to="/map"
-                    className="press flex h-11 items-center justify-center rounded-2xl bg-navy text-[13px] font-bold text-navy-foreground"
-                  >
-                    Get Directions
-                  </Link>
-                </div>
-              </div>
-            </Card>
-          ))}
+              </Card>
+            );
+          })}
         </div>
       </section>
 
@@ -204,7 +493,10 @@ function HomeScreen() {
             <p className="mt-3 text-[14px] font-bold text-navy">Volunteer</p>
             <p className="text-[11.5px] text-muted-foreground">Join relief tasks</p>
           </Link>
-          <Link to="/donate" className="press rounded-3xl bg-accent p-4 shadow-[var(--shadow-soft)]">
+          <Link
+            to="/donate"
+            className="press rounded-3xl bg-accent p-4 shadow-[var(--shadow-soft)]"
+          >
             <HandCoins className="h-6 w-6 text-info" />
             <p className="mt-3 text-[14px] font-bold text-navy">Donate</p>
             <p className="text-[11.5px] text-muted-foreground">Support shelters</p>
@@ -215,7 +507,7 @@ function HomeScreen() {
       <section className="px-4 pt-7">
         <SectionHeader title="Live Updates" actionLabel="All alerts" to="/alerts" />
         <Card className="divide-y divide-border/70 p-0">
-          {liveUpdates.map((u) => (
+          {dynamicUpdates.map((u) => (
             <Link
               key={u.id}
               to="/alerts"

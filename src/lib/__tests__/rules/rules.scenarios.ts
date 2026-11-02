@@ -1,0 +1,1688 @@
+/**
+ * Security-rule scenarios shared by:
+ *  - rules.eval.test.ts      (local evaluator, runs with `npm test`)
+ *  - rules.emulator.test.ts  (real Firestore emulator, runs with `npm run test:rules`)
+ */
+import type { Doc } from "./rules-eval";
+
+export interface ScenarioActor {
+  uid: string;
+  token?: Record<string, unknown>;
+}
+
+export interface Scenario {
+  name: string;
+  actor: ScenarioActor | null;
+  op: "get" | "list" | "create" | "update" | "delete";
+  path: string;
+  /** For create/update: the full document that would result (request.resource.data). */
+  after?: Doc;
+  /** For list: the query constraints (request.query), e.g. { limit: 5 }. */
+  query?: { limit?: number };
+  expect: "allow" | "deny";
+}
+
+const T0 = "2026-10-18T10:00:00.000Z";
+const T1 = "2026-10-18T10:05:00.000Z";
+
+export const actors = {
+  citizen1: { uid: "citizen1", token: { email: "citizen1@example.com" } },
+  citizen2: { uid: "citizen2", token: { email: "citizen2@example.com" } },
+  vol1: { uid: "vol1", token: { email: "vol1@example.com" } },
+  vol2: { uid: "vol2", token: { email: "vol2@example.com" } },
+  pending1: { uid: "pending1", token: { email: "pending1@example.com" } },
+  rejected1: { uid: "rejected1", token: { email: "rejected1@example.com" } },
+  volNoStatus: { uid: "volNoStatus", token: { email: "vns@example.com" } },
+  legacyFlag: { uid: "legacyFlag", token: { email: "legacy@example.com" } },
+  admin1: { uid: "admin1", token: { email: "admin1@example.com" } },
+  admin2: { uid: "admin2", token: { email: "admin2@example.com" } },
+  claimAdmin: { uid: "claimAdmin", token: { admin: true } },
+} satisfies Record<string, ScenarioActor>;
+
+const profile = (uid: string, over: Doc = {}): Doc => ({
+  uid,
+  email: `${uid}@example.com`,
+  displayName: uid,
+  role: "user",
+  volunteerStatus: "none",
+  phone: "",
+  area: "Dhaka, Bangladesh",
+  createdAt: T0,
+  updatedAt: T0,
+  ...over,
+});
+
+const gpsLocation = (over: Doc = {}): Doc => ({
+  source: "gps",
+  address: "Road 5, Dhanmondi",
+  lat: 23.75,
+  lng: 90.39,
+  accuracyMeters: 12,
+  updatedAt: T0,
+  ...over,
+});
+
+export const sosDoc = (over: Doc = {}): Doc => ({
+  userId: "citizen1",
+  userName: "Citizen One",
+  userPhone: "+8801712345678",
+  userEmail: "citizen1@example.com",
+  message: "help",
+  location: gpsLocation(),
+  status: "active",
+  createdAt: T0,
+  updatedAt: T0,
+  ...over,
+});
+
+const responder = (uid: string | undefined, over: Doc = {}): Doc => ({
+  unit: "Karim",
+  eta: "12 min",
+  ...(uid ? { responderId: uid } : {}),
+  assignedAt: T1,
+  ...over,
+});
+
+export const donationDoc = (over: Doc = {}): Doc => {
+  const base: Doc = {
+    id: "d1",
+    donorName: "Rahim",
+    donorEmail: "rahim@example.com",
+    type: "money",
+    amount: 500,
+    shelterId: "mirpur",
+    shelterName: "Mirpur Shelter",
+    date: T0,
+    status: "completed",
+    ...over,
+  };
+  // Strip undefined keys so tests can remove amount/items cleanly
+  for (const k of Object.keys(base)) {
+    if (base[k] === undefined) delete base[k];
+  }
+  return base;
+};
+
+export const pushSubDoc = (over: Doc = {}): Doc => {
+  const base: Doc = {
+    id: "sub-c1",
+    userId: "citizen1",
+    endpoint: "https://fcm.googleapis.com/fcm/send/sample-token-1234567890",
+    keys: {
+      p256dh: "BMc_sF3rW6qX9K2m0vJ1t8P3e5Q7r9S1u3W5y7A9c1E3g5I7k9M1o3Q5s7U9w1Y3",
+      auth: "k1m3o5q7s9u1w3y5",
+    },
+    topics: ["weather", "emergency"],
+    enabled: true,
+    locationName: "Dhaka",
+    createdAt: T0,
+    updatedAt: T0,
+    ...over,
+  };
+  for (const k of Object.keys(base)) {
+    if (base[k] === undefined) delete base[k];
+  }
+  return base;
+};
+
+/** Documents that exist before each scenario (security rules disabled while seeding). */
+export const seed: Record<string, Doc> = {
+  "users/citizen1": profile("citizen1"),
+  "users/citizen2": profile("citizen2"),
+  "users/vol1": profile("vol1", { role: "volunteer", volunteerStatus: "approved" }),
+  "users/vol2": profile("vol2", { role: "volunteer", volunteerStatus: "approved" }),
+  "users/pending1": profile("pending1", {
+    volunteerStatus: "pending",
+    volunteerApplication: { appliedAt: T0, skills: ["First Aid"], area: "Dhaka", notes: "" },
+  }),
+  "users/rejected1": profile("rejected1", { volunteerStatus: "rejected" }),
+  "users/volNoStatus": profile("volNoStatus", { role: "volunteer", volunteerStatus: "none" }),
+  "users/legacyFlag": profile("legacyFlag", { isAdmin: true, admin: true }),
+  "users/admin1": profile("admin1", { role: "admin" }),
+  "users/admin2": profile("admin2", { role: "admin" }),
+
+  "donations/d1": donationDoc({ donorUid: "citizen1" }),
+
+  "push_subscriptions/sub-c1": pushSubDoc(),
+
+  "sos_requests/s-active": sosDoc(),
+  "sos_requests/s-manual": sosDoc({
+    location: { source: "manual", address: "House 12, Road 5, Dhanmondi" },
+  }),
+  "sos_requests/s-assigned": sosDoc({
+    status: "assigned",
+    assignedResponder: responder("vol1"),
+  }),
+  "sos_requests/s-resolved": sosDoc({ status: "resolved", resolvedAt: T1 }),
+  "sos_requests/s-cancelled": sosDoc({ status: "cancelled", cancelledAt: T1 }),
+  // Written by an older client: no location.source, free-text accuracy.
+  "sos_requests/s-legacy": sosDoc({
+    location: { address: "Old Dhaka", lat: 23.7, lng: 90.4, accuracy: "±8 m (GPS strong)" },
+  }),
+};
+
+const u = (
+  name: string,
+  actor: ScenarioActor | null,
+  op: Scenario["op"],
+  path: string,
+  expect: Scenario["expect"],
+  after?: Doc,
+): Scenario =>
+  after === undefined
+    ? { name, actor, op, path, expect }
+    : { name, actor, op, path, after, expect };
+
+const withUser = (id: string, over: Doc): Doc => ({ ...(seed[`users/${id}`] as Doc), ...over });
+const withSos = (id: string, over: Doc): Doc => ({
+  ...(seed[`sos_requests/${id}`] as Doc),
+  ...over,
+});
+const loc = (id: string, over: Doc): Doc => ({
+  ...((seed[`sos_requests/${id}`] as Doc)["location"] as Doc),
+  ...over,
+});
+
+export const scenarios: Scenario[] = [
+  // ---------------------------------------------------------------- users: get / list
+  u("users: owner reads own profile", actors.citizen1, "get", "users/citizen1", "allow"),
+  u("users: citizen cannot read another profile", actors.citizen1, "get", "users/citizen2", "deny"),
+  u("users: volunteer cannot read another profile", actors.vol1, "get", "users/citizen1", "deny"),
+  u("users: admin reads any profile", actors.admin1, "get", "users/citizen1", "allow"),
+  u(
+    "users: custom-claim admin reads any profile",
+    actors.claimAdmin,
+    "get",
+    "users/citizen1",
+    "allow",
+  ),
+  u("users: signed-out cannot read a profile", null, "get", "users/citizen1", "deny"),
+  u("SEC-1 users: citizen cannot list profiles", actors.citizen1, "list", "users/citizen1", "deny"),
+  u("SEC-1 users: volunteer cannot list profiles", actors.vol1, "list", "users/citizen1", "deny"),
+  u("SEC-1 users: signed-out cannot list profiles", null, "list", "users/citizen1", "deny"),
+  u("users: admin can list profiles", actors.admin1, "list", "users/citizen1", "allow"),
+  {
+    name: "SEC-1 users: a small query limit is NOT an authorization",
+    actor: actors.citizen1,
+    op: "list",
+    path: "users/citizen1",
+    query: { limit: 5 },
+    expect: "deny",
+  },
+  {
+    name: "SEC-1 users: limit(1) does not let a citizen list either",
+    actor: actors.citizen1,
+    op: "list",
+    path: "users/citizen2",
+    query: { limit: 1 },
+    expect: "deny",
+  },
+  {
+    name: "SEC-1 users: volunteer with a limit cannot list",
+    actor: actors.vol1,
+    op: "list",
+    path: "users/citizen1",
+    query: { limit: 5 },
+    expect: "deny",
+  },
+  {
+    name: "users: admin list with a limit still works",
+    actor: actors.admin1,
+    op: "list",
+    path: "users/citizen1",
+    query: { limit: 5 },
+    expect: "allow",
+  },
+
+  // ---------------------------------------------------------------- users: create
+  u(
+    "users: citizen creates own valid profile",
+    { uid: "newbie", token: { email: "newbie@example.com" } },
+    "create",
+    "users/newbie",
+    "allow",
+    profile("newbie"),
+  ),
+  u(
+    "users: create without phone/area is fine",
+    { uid: "newbie", token: { email: "newbie@example.com" } },
+    "create",
+    "users/newbie",
+    "allow",
+    (() => {
+      const p = profile("newbie");
+      delete p["phone"];
+      delete p["area"];
+      return p;
+    })(),
+  ),
+  u(
+    "users: cannot create a profile for someone else",
+    actors.citizen1,
+    "create",
+    "users/newbie",
+    "deny",
+    profile("newbie"),
+  ),
+  u(
+    "SEC-2 users: cannot create as admin",
+    { uid: "newbie", token: { email: "newbie@example.com" } },
+    "create",
+    "users/newbie",
+    "deny",
+    profile("newbie", { role: "admin" }),
+  ),
+  u(
+    "SEC-2 users: cannot create as volunteer",
+    { uid: "newbie", token: { email: "newbie@example.com" } },
+    "create",
+    "users/newbie",
+    "deny",
+    profile("newbie", { role: "volunteer" }),
+  ),
+  u(
+    "SEC-2 users: cannot create pre-approved",
+    { uid: "newbie", token: { email: "newbie@example.com" } },
+    "create",
+    "users/newbie",
+    "deny",
+    profile("newbie", { volunteerStatus: "approved" }),
+  ),
+  u(
+    "users: cannot create already-pending",
+    { uid: "newbie", token: { email: "newbie@example.com" } },
+    "create",
+    "users/newbie",
+    "deny",
+    profile("newbie", { volunteerStatus: "pending" }),
+  ),
+  u(
+    "SEC-2 users: cannot create with isAdmin flag",
+    { uid: "newbie", token: { email: "newbie@example.com" } },
+    "create",
+    "users/newbie",
+    "deny",
+    profile("newbie", { isAdmin: true }),
+  ),
+  u(
+    "SEC-2 users: cannot create with admin flag",
+    { uid: "newbie", token: { email: "newbie@example.com" } },
+    "create",
+    "users/newbie",
+    "deny",
+    profile("newbie", { admin: true }),
+  ),
+  u(
+    "users: cannot create with unknown field",
+    { uid: "newbie", token: { email: "newbie@example.com" } },
+    "create",
+    "users/newbie",
+    "deny",
+    profile("newbie", { superpower: 1 }),
+  ),
+  u(
+    "users: cannot create with someone else's email",
+    { uid: "newbie", token: { email: "newbie@example.com" } },
+    "create",
+    "users/newbie",
+    "deny",
+    profile("newbie", { email: "ceo@example.com" }),
+  ),
+  u(
+    "users: email comparison is case-insensitive",
+    { uid: "newbie", token: { email: "NewBie@Example.com" } },
+    "create",
+    "users/newbie",
+    "allow",
+    profile("newbie"),
+  ),
+  u(
+    "users: cannot create without displayName",
+    { uid: "newbie", token: { email: "newbie@example.com" } },
+    "create",
+    "users/newbie",
+    "deny",
+    (() => {
+      const p = profile("newbie");
+      delete p["displayName"];
+      return p;
+    })(),
+  ),
+  u(
+    "users: cannot create with mismatched uid field",
+    { uid: "newbie", token: { email: "newbie@example.com" } },
+    "create",
+    "users/newbie",
+    "deny",
+    profile("newbie", { uid: "citizen1" }),
+  ),
+  u(
+    "users: cannot create with updatedAt != createdAt",
+    { uid: "newbie", token: { email: "newbie@example.com" } },
+    "create",
+    "users/newbie",
+    "deny",
+    profile("newbie", { updatedAt: T1 }),
+  ),
+  u(
+    "users: cannot create with oversized phone",
+    { uid: "newbie", token: { email: "newbie@example.com" } },
+    "create",
+    "users/newbie",
+    "deny",
+    profile("newbie", { phone: "1".repeat(40) }),
+  ),
+  u("users: signed-out cannot create", null, "create", "users/newbie", "deny", profile("newbie")),
+
+  // ---------------------------------------------------------------- users: update (owner)
+  u(
+    "users: owner edits phone",
+    actors.citizen1,
+    "update",
+    "users/citizen1",
+    "allow",
+    withUser("citizen1", { phone: "+8801712345678", updatedAt: T1 }),
+  ),
+  u(
+    "users: owner edits displayName and area",
+    actors.citizen1,
+    "update",
+    "users/citizen1",
+    "allow",
+    withUser("citizen1", { displayName: "Rahim", area: "Mirpur", updatedAt: T1 }),
+  ),
+  u(
+    "SEC-2 users: owner cannot become admin",
+    actors.citizen1,
+    "update",
+    "users/citizen1",
+    "deny",
+    withUser("citizen1", { role: "admin", updatedAt: T1 }),
+  ),
+  u(
+    "SEC-2 users: owner cannot become volunteer",
+    actors.citizen1,
+    "update",
+    "users/citizen1",
+    "deny",
+    withUser("citizen1", { role: "volunteer", updatedAt: T1 }),
+  ),
+  u(
+    "SEC-2 users: owner cannot add isAdmin flag",
+    actors.citizen1,
+    "update",
+    "users/citizen1",
+    "deny",
+    withUser("citizen1", { isAdmin: true, updatedAt: T1 }),
+  ),
+  u(
+    "SEC-2 users: owner cannot add admin flag",
+    actors.citizen1,
+    "update",
+    "users/citizen1",
+    "deny",
+    withUser("citizen1", { admin: true, updatedAt: T1 }),
+  ),
+  u(
+    "users: owner cannot self-approve as volunteer",
+    actors.citizen1,
+    "update",
+    "users/citizen1",
+    "deny",
+    withUser("citizen1", { volunteerStatus: "approved", updatedAt: T1 }),
+  ),
+  u(
+    "users: owner applies to volunteer (none -> pending)",
+    actors.citizen1,
+    "update",
+    "users/citizen1",
+    "allow",
+    withUser("citizen1", {
+      volunteerStatus: "pending",
+      volunteerApplication: { appliedAt: T1, skills: ["General Relief"], area: "Dhaka", notes: "" },
+      updatedAt: T1,
+    }),
+  ),
+  u(
+    "users: rejected user may re-apply (rejected -> pending)",
+    actors.rejected1,
+    "update",
+    "users/rejected1",
+    "allow",
+    withUser("rejected1", {
+      volunteerStatus: "pending",
+      volunteerApplication: { appliedAt: T1, skills: ["General Relief"], area: "Dhaka", notes: "" },
+      updatedAt: T1,
+    }),
+  ),
+  u(
+    "users: application with unknown field is refused",
+    actors.citizen1,
+    "update",
+    "users/citizen1",
+    "deny",
+    withUser("citizen1", {
+      volunteerStatus: "pending",
+      volunteerApplication: { appliedAt: T1, role: "admin" },
+      updatedAt: T1,
+    }),
+  ),
+  u(
+    "users: pending applicant cannot rewrite application while pending",
+    actors.pending1,
+    "update",
+    "users/pending1",
+    "deny",
+    withUser("pending1", { volunteerApplication: { appliedAt: T1, skills: ["x"] }, updatedAt: T1 }),
+  ),
+  u(
+    "users: approved volunteer cannot move back to pending",
+    actors.vol1,
+    "update",
+    "users/vol1",
+    "deny",
+    withUser("vol1", {
+      volunteerStatus: "pending",
+      volunteerApplication: { appliedAt: T1 },
+      updatedAt: T1,
+    }),
+  ),
+  u(
+    "users: owner cannot change email",
+    actors.citizen1,
+    "update",
+    "users/citizen1",
+    "deny",
+    withUser("citizen1", { email: "other@example.com", updatedAt: T1 }),
+  ),
+  u(
+    "users: owner cannot change createdAt",
+    actors.citizen1,
+    "update",
+    "users/citizen1",
+    "deny",
+    withUser("citizen1", { createdAt: T1, updatedAt: T1 }),
+  ),
+  u(
+    "users: owner cannot change uid",
+    actors.citizen1,
+    "update",
+    "users/citizen1",
+    "deny",
+    withUser("citizen1", { uid: "citizen2", updatedAt: T1 }),
+  ),
+  u(
+    "users: oversized phone rejected on update",
+    actors.citizen1,
+    "update",
+    "users/citizen1",
+    "deny",
+    withUser("citizen1", { phone: "9".repeat(50), updatedAt: T1 }),
+  ),
+  u(
+    "users: another citizen cannot update my profile",
+    actors.citizen2,
+    "update",
+    "users/citizen1",
+    "deny",
+    withUser("citizen1", { phone: "+8801700000000", updatedAt: T1 }),
+  ),
+  u(
+    "users: volunteer cannot update another profile",
+    actors.vol1,
+    "update",
+    "users/citizen1",
+    "deny",
+    withUser("citizen1", { phone: "+8801700000000", updatedAt: T1 }),
+  ),
+  u(
+    "users: legacy isAdmin flag does not grant admin updates",
+    actors.legacyFlag,
+    "update",
+    "users/citizen1",
+    "deny",
+    withUser("citizen1", { role: "volunteer", volunteerStatus: "approved", updatedAt: T1 }),
+  ),
+  u(
+    "users: legacy isAdmin flag does not grant listing",
+    actors.legacyFlag,
+    "list",
+    "users/citizen1",
+    "deny",
+  ),
+
+  // ---------------------------------------------------------------- users: update (admin)
+  u(
+    "users: admin approves pending applicant",
+    actors.admin1,
+    "update",
+    "users/pending1",
+    "allow",
+    withUser("pending1", { role: "volunteer", volunteerStatus: "approved", updatedAt: T1 }),
+  ),
+  u(
+    "users: admin rejects pending applicant",
+    actors.admin1,
+    "update",
+    "users/pending1",
+    "allow",
+    withUser("pending1", { role: "user", volunteerStatus: "rejected", updatedAt: T1 }),
+  ),
+  u(
+    "users: admin revokes volunteer",
+    actors.admin1,
+    "update",
+    "users/vol1",
+    "allow",
+    withUser("vol1", { role: "user", volunteerStatus: "none", updatedAt: T1 }),
+  ),
+  u(
+    "users: custom-claim admin approves",
+    actors.claimAdmin,
+    "update",
+    "users/pending1",
+    "allow",
+    withUser("pending1", { role: "volunteer", volunteerStatus: "approved", updatedAt: T1 }),
+  ),
+  u(
+    "users: admin cannot approve without making role volunteer",
+    actors.admin1,
+    "update",
+    "users/pending1",
+    "deny",
+    withUser("pending1", { role: "user", volunteerStatus: "approved", updatedAt: T1 }),
+  ),
+  u(
+    "users: admin cannot set volunteer role with status none",
+    actors.admin1,
+    "update",
+    "users/citizen1",
+    "deny",
+    withUser("citizen1", { role: "volunteer", volunteerStatus: "none", updatedAt: T1 }),
+  ),
+  u(
+    "SEC-2 users: admin cannot promote anyone to admin from the client",
+    actors.admin1,
+    "update",
+    "users/citizen1",
+    "deny",
+    withUser("citizen1", { role: "admin", updatedAt: T1 }),
+  ),
+  u(
+    "SEC-2 users: admin cannot demote another admin from the client",
+    actors.admin1,
+    "update",
+    "users/admin2",
+    "deny",
+    withUser("admin2", { role: "user", volunteerStatus: "rejected", updatedAt: T1 }),
+  ),
+  u(
+    "users: admin cannot edit a user's phone/name",
+    actors.admin1,
+    "update",
+    "users/citizen1",
+    "deny",
+    withUser("citizen1", { phone: "+8801700000000", updatedAt: T1 }),
+  ),
+  u(
+    "users: admin cannot change a user's email",
+    actors.admin1,
+    "update",
+    "users/citizen1",
+    "deny",
+    withUser("citizen1", { email: "x@example.com", updatedAt: T1 }),
+  ),
+
+  // ---------------------------------------------------------------- users: delete
+  u("users: admin deletes a citizen profile", actors.admin1, "delete", "users/citizen1", "allow"),
+  u("users: admin cannot delete another admin", actors.admin1, "delete", "users/admin2", "deny"),
+  u("users: admin cannot delete themselves", actors.admin1, "delete", "users/admin1", "deny"),
+  u(
+    "users: citizen cannot delete own profile",
+    actors.citizen1,
+    "delete",
+    "users/citizen1",
+    "deny",
+  ),
+  u("users: volunteer cannot delete profiles", actors.vol1, "delete", "users/citizen1", "deny"),
+
+  // ---------------------------------------------------------------- sos: read
+  u("sos: owner reads own request", actors.citizen1, "get", "sos_requests/s-active", "allow"),
+  u("sos: other citizen cannot read", actors.citizen2, "get", "sos_requests/s-active", "deny"),
+  u("sos: approved volunteer reads", actors.vol1, "get", "sos_requests/s-active", "allow"),
+  u("sos: admin reads", actors.admin1, "get", "sos_requests/s-active", "allow"),
+  u("sos: pending applicant cannot read", actors.pending1, "get", "sos_requests/s-active", "deny"),
+  u(
+    "sos: role=volunteer with status none cannot read",
+    actors.volNoStatus,
+    "get",
+    "sos_requests/s-active",
+    "deny",
+  ),
+  u("sos: signed-out cannot read", null, "get", "sos_requests/s-active", "deny"),
+
+  // ---------------------------------------------------------------- sos: create (SEC-3)
+  u(
+    "SEC-3 sos: valid GPS request",
+    actors.citizen1,
+    "create",
+    "sos_requests/new1",
+    "allow",
+    sosDoc(),
+  ),
+  u(
+    "SEC-3 sos: valid manual-address request",
+    actors.citizen1,
+    "create",
+    "sos_requests/new1",
+    "allow",
+    sosDoc({ location: { source: "manual", address: "House 12, Road 5" } }),
+  ),
+  u(
+    "SEC-3 sos: valid request without GPS accuracy",
+    actors.citizen1,
+    "create",
+    "sos_requests/new1",
+    "allow",
+    sosDoc({
+      location:
+        gpsLocation({ accuracyMeters: undefined }) &&
+        (() => {
+          const l = gpsLocation();
+          delete l["accuracyMeters"];
+          return l;
+        })(),
+    }),
+  ),
+  u(
+    "SEC-3 sos: cannot create as already assigned",
+    actors.citizen1,
+    "create",
+    "sos_requests/new1",
+    "deny",
+    sosDoc({ status: "assigned" }),
+  ),
+  u(
+    "SEC-3 sos: cannot create as already resolved",
+    actors.citizen1,
+    "create",
+    "sos_requests/new1",
+    "deny",
+    sosDoc({ status: "resolved" }),
+  ),
+  u(
+    "SEC-3 sos: cannot create as already cancelled",
+    actors.citizen1,
+    "create",
+    "sos_requests/new1",
+    "deny",
+    sosDoc({ status: "cancelled" }),
+  ),
+  u(
+    "SEC-3 sos: cannot create with a pre-set responder",
+    actors.citizen1,
+    "create",
+    "sos_requests/new1",
+    "deny",
+    sosDoc({ assignedResponder: responder("vol1") }),
+  ),
+  u(
+    "SEC-3 sos: cannot create for another user",
+    actors.citizen2,
+    "create",
+    "sos_requests/new1",
+    "deny",
+    sosDoc(),
+  ),
+  u(
+    "SEC-3 sos: cannot create without a location",
+    actors.citizen1,
+    "create",
+    "sos_requests/new1",
+    "deny",
+    (() => {
+      const d = sosDoc();
+      delete d["location"];
+      return d;
+    })(),
+  ),
+  u(
+    "SEC-3 sos: manual request cannot carry coordinates",
+    actors.citizen1,
+    "create",
+    "sos_requests/new1",
+    "deny",
+    sosDoc({ location: { source: "manual", address: "House 12, Road 5", lat: 1, lng: 2 } }),
+  ),
+  u(
+    "SEC-3 sos: manual address must be meaningful",
+    actors.citizen1,
+    "create",
+    "sos_requests/new1",
+    "deny",
+    sosDoc({ location: { source: "manual", address: "ab" } }),
+  ),
+  u(
+    "SEC-3 sos: GPS latitude out of range",
+    actors.citizen1,
+    "create",
+    "sos_requests/new1",
+    "deny",
+    sosDoc({ location: gpsLocation({ lat: 999 }) }),
+  ),
+  u(
+    "SEC-3 sos: GPS longitude out of range",
+    actors.citizen1,
+    "create",
+    "sos_requests/new1",
+    "deny",
+    sosDoc({ location: gpsLocation({ lng: -500 }) }),
+  ),
+  u(
+    "SEC-3 sos: GPS without longitude",
+    actors.citizen1,
+    "create",
+    "sos_requests/new1",
+    "deny",
+    sosDoc({
+      location: (() => {
+        const l = gpsLocation();
+        delete l["lng"];
+        return l;
+      })(),
+    }),
+  ),
+  u(
+    "SEC-3 sos: GPS coordinates must be numbers",
+    actors.citizen1,
+    "create",
+    "sos_requests/new1",
+    "deny",
+    sosDoc({ location: gpsLocation({ lat: "23.7" }) }),
+  ),
+  u(
+    "SEC-3 sos: negative accuracy refused",
+    actors.citizen1,
+    "create",
+    "sos_requests/new1",
+    "deny",
+    sosDoc({ location: gpsLocation({ accuracyMeters: -5 }) }),
+  ),
+  u(
+    "SEC-3 sos: unknown location source",
+    actors.citizen1,
+    "create",
+    "sos_requests/new1",
+    "deny",
+    sosDoc({ location: gpsLocation({ source: "psychic" }) }),
+  ),
+  u(
+    "SEC-3 sos: unknown extra field refused",
+    actors.citizen1,
+    "create",
+    "sos_requests/new1",
+    "deny",
+    sosDoc({ priority: "top" }),
+  ),
+  u(
+    "SEC-3 sos: oversized message refused",
+    actors.citizen1,
+    "create",
+    "sos_requests/new1",
+    "deny",
+    sosDoc({ message: "x".repeat(2000) }),
+  ),
+  u(
+    "SEC-3 sos: updatedAt must equal createdAt on create",
+    actors.citizen1,
+    "create",
+    "sos_requests/new1",
+    "deny",
+    sosDoc({ updatedAt: T1 }),
+  ),
+  u("SEC-3 sos: signed-out cannot create", null, "create", "sos_requests/new1", "deny", sosDoc()),
+
+  // ---------------------------------------------------------------- sos: owner updates (SEC-4)
+  u(
+    "SEC-4 sos: owner cancels active request",
+    actors.citizen1,
+    "update",
+    "sos_requests/s-active",
+    "allow",
+    withSos("s-active", { status: "cancelled", cancelledAt: T1, updatedAt: T1 }),
+  ),
+  u(
+    "SEC-4 sos: owner cancels assigned request",
+    actors.citizen1,
+    "update",
+    "sos_requests/s-assigned",
+    "allow",
+    withSos("s-assigned", { status: "cancelled", cancelledAt: T1, updatedAt: T1 }),
+  ),
+  u(
+    "SEC-4 sos: cancel cannot also change the phone number",
+    actors.citizen1,
+    "update",
+    "sos_requests/s-active",
+    "deny",
+    withSos("s-active", {
+      status: "cancelled",
+      cancelledAt: T1,
+      updatedAt: T1,
+      userPhone: "+8801700000000",
+    }),
+  ),
+  u(
+    "SEC-4 sos: cancel cannot also change the owner",
+    actors.citizen1,
+    "update",
+    "sos_requests/s-active",
+    "deny",
+    withSos("s-active", {
+      status: "cancelled",
+      cancelledAt: T1,
+      updatedAt: T1,
+      userId: "citizen2",
+    }),
+  ),
+  u(
+    "SEC-4 sos: cancel cannot also move the location",
+    actors.citizen1,
+    "update",
+    "sos_requests/s-active",
+    "deny",
+    withSos("s-active", {
+      status: "cancelled",
+      cancelledAt: T1,
+      updatedAt: T1,
+      location: gpsLocation({ lat: 10 }),
+    }),
+  ),
+  u(
+    "SEC-4 sos: cancel cannot also inject a responder",
+    actors.citizen1,
+    "update",
+    "sos_requests/s-active",
+    "deny",
+    withSos("s-active", {
+      status: "cancelled",
+      cancelledAt: T1,
+      updatedAt: T1,
+      assignedResponder: responder("vol1"),
+    }),
+  ),
+  u(
+    "SEC-4 sos: resolved request cannot be cancelled",
+    actors.citizen1,
+    "update",
+    "sos_requests/s-resolved",
+    "deny",
+    withSos("s-resolved", { status: "cancelled", cancelledAt: T1, updatedAt: T1 }),
+  ),
+  u(
+    "SEC-4 sos: cancelled request cannot be cancelled again",
+    actors.citizen1,
+    "update",
+    "sos_requests/s-cancelled",
+    "deny",
+    withSos("s-cancelled", { status: "cancelled", cancelledAt: T1, updatedAt: T1 }),
+  ),
+  u(
+    "SEC-4 sos: cancelled request cannot be re-opened",
+    actors.citizen1,
+    "update",
+    "sos_requests/s-cancelled",
+    "deny",
+    withSos("s-cancelled", { status: "active", updatedAt: T1 }),
+  ),
+  u(
+    "SEC-4 sos: owner closes assigned request as resolved",
+    actors.citizen1,
+    "update",
+    "sos_requests/s-assigned",
+    "allow",
+    withSos("s-assigned", { status: "resolved", resolvedAt: T1, updatedAt: T1 }),
+  ),
+  u(
+    "SEC-4 sos: owner closes active request as resolved",
+    actors.citizen1,
+    "update",
+    "sos_requests/s-active",
+    "allow",
+    withSos("s-active", { status: "resolved", resolvedAt: T1, updatedAt: T1 }),
+  ),
+  u(
+    "SEC-4 sos: cancelled request cannot be resolved",
+    actors.citizen1,
+    "update",
+    "sos_requests/s-cancelled",
+    "deny",
+    withSos("s-cancelled", { status: "resolved", resolvedAt: T1, updatedAt: T1 }),
+  ),
+  u(
+    "SEC-4 sos: owner cannot self-assign a responder",
+    actors.citizen1,
+    "update",
+    "sos_requests/s-active",
+    "deny",
+    withSos("s-active", {
+      status: "assigned",
+      assignedResponder: responder("citizen1"),
+      updatedAt: T1,
+    }),
+  ),
+  u(
+    "SEC-4 sos: owner cannot edit the message",
+    actors.citizen1,
+    "update",
+    "sos_requests/s-active",
+    "deny",
+    withSos("s-active", { message: "changed", updatedAt: T1 }),
+  ),
+  u(
+    "SEC-4 sos: another citizen cannot cancel",
+    actors.citizen2,
+    "update",
+    "sos_requests/s-active",
+    "deny",
+    withSos("s-active", { status: "cancelled", cancelledAt: T1, updatedAt: T1 }),
+  ),
+
+  // owner shares live GPS (Phase 1 requirement)
+  u(
+    "sos: owner shares a new GPS position",
+    actors.citizen1,
+    "update",
+    "sos_requests/s-active",
+    "allow",
+    withSos("s-active", {
+      location: loc("s-active", { lat: 23.76, lng: 90.4, accuracyMeters: 8, updatedAt: T1 }),
+      updatedAt: T1,
+    }),
+  ),
+  u(
+    "sos: owner can share GPS while assigned",
+    actors.citizen1,
+    "update",
+    "sos_requests/s-assigned",
+    "allow",
+    withSos("s-assigned", {
+      location: loc("s-assigned", { lat: 23.76, lng: 90.4, updatedAt: T1 }),
+      updatedAt: T1,
+    }),
+  ),
+  u(
+    "sos: legacy request can receive GPS updates",
+    actors.citizen1,
+    "update",
+    "sos_requests/s-legacy",
+    "allow",
+    withSos("s-legacy", {
+      location: loc("s-legacy", { lat: 23.8, lng: 90.5, updatedAt: T1 }),
+      updatedAt: T1,
+    }),
+  ),
+  u(
+    "sos: manual request cannot gain coordinates",
+    actors.citizen1,
+    "update",
+    "sos_requests/s-manual",
+    "deny",
+    withSos("s-manual", {
+      location: loc("s-manual", { lat: 23.8, lng: 90.5, updatedAt: T1 }),
+      updatedAt: T1,
+    }),
+  ),
+  u(
+    "sos: no location updates after resolution",
+    actors.citizen1,
+    "update",
+    "sos_requests/s-resolved",
+    "deny",
+    withSos("s-resolved", { location: loc("s-resolved", { lat: 23.8, lng: 90.5 }), updatedAt: T1 }),
+  ),
+  u(
+    "sos: no location updates after cancellation",
+    actors.citizen1,
+    "update",
+    "sos_requests/s-cancelled",
+    "deny",
+    withSos("s-cancelled", {
+      location: loc("s-cancelled", { lat: 23.8, lng: 90.5 }),
+      updatedAt: T1,
+    }),
+  ),
+  u(
+    "sos: location update cannot also change status",
+    actors.citizen1,
+    "update",
+    "sos_requests/s-active",
+    "deny",
+    withSos("s-active", {
+      status: "assigned",
+      location: loc("s-active", { lat: 23.8 }),
+      updatedAt: T1,
+    }),
+  ),
+  u(
+    "sos: location update cannot change the address text",
+    actors.citizen1,
+    "update",
+    "sos_requests/s-active",
+    "deny",
+    withSos("s-active", {
+      location: loc("s-active", { lat: 23.8, address: "Somewhere else" }),
+      updatedAt: T1,
+    }),
+  ),
+  u(
+    "sos: location update cannot flip the source",
+    actors.citizen1,
+    "update",
+    "sos_requests/s-active",
+    "deny",
+    withSos("s-active", {
+      location: loc("s-active", { lat: 23.8, source: "manual" }),
+      updatedAt: T1,
+    }),
+  ),
+  u(
+    "sos: location update must stay in range",
+    actors.citizen1,
+    "update",
+    "sos_requests/s-active",
+    "deny",
+    withSos("s-active", { location: loc("s-active", { lat: 200 }), updatedAt: T1 }),
+  ),
+  u(
+    "sos: another citizen cannot move my location",
+    actors.citizen2,
+    "update",
+    "sos_requests/s-active",
+    "deny",
+    withSos("s-active", { location: loc("s-active", { lat: 23.8 }), updatedAt: T1 }),
+  ),
+
+  // ---------------------------------------------------------------- sos: volunteers (SEC-5)
+  u(
+    "SEC-5 sos: approved volunteer accepts an active request",
+    actors.vol1,
+    "update",
+    "sos_requests/s-active",
+    "allow",
+    withSos("s-active", {
+      status: "assigned",
+      assignedResponder: responder("vol1"),
+      updatedAt: T1,
+    }),
+  ),
+  u(
+    "SEC-5 sos: volunteer cannot assign someone else",
+    actors.vol1,
+    "update",
+    "sos_requests/s-active",
+    "deny",
+    withSos("s-active", {
+      status: "assigned",
+      assignedResponder: responder("vol2"),
+      updatedAt: T1,
+    }),
+  ),
+  u(
+    "SEC-5 sos: assignment must name the responder",
+    actors.vol1,
+    "update",
+    "sos_requests/s-active",
+    "deny",
+    withSos("s-active", {
+      status: "assigned",
+      assignedResponder: responder(undefined),
+      updatedAt: T1,
+    }),
+  ),
+  u(
+    "SEC-5 sos: assignment cannot carry extra fields",
+    actors.vol1,
+    "update",
+    "sos_requests/s-active",
+    "deny",
+    withSos("s-active", {
+      status: "assigned",
+      assignedResponder: responder("vol1", { admin: true }),
+      updatedAt: T1,
+    }),
+  ),
+  u(
+    "SEC-5 sos: volunteer cannot steal an assigned request",
+    actors.vol2,
+    "update",
+    "sos_requests/s-assigned",
+    "deny",
+    withSos("s-assigned", {
+      status: "assigned",
+      assignedResponder: responder("vol2"),
+      updatedAt: T1,
+    }),
+  ),
+  u(
+    "SEC-5 sos: assigned volunteer may refresh their own ETA",
+    actors.vol1,
+    "update",
+    "sos_requests/s-assigned",
+    "allow",
+    withSos("s-assigned", {
+      status: "assigned",
+      assignedResponder: responder("vol1", { eta: "5 min" }),
+      updatedAt: T1,
+    }),
+  ),
+  u(
+    "SEC-5 sos: accepting cannot also rewrite the phone",
+    actors.vol1,
+    "update",
+    "sos_requests/s-active",
+    "deny",
+    withSos("s-active", {
+      status: "assigned",
+      assignedResponder: responder("vol1"),
+      userPhone: "+8801799999999",
+      updatedAt: T1,
+    }),
+  ),
+  u(
+    "SEC-5 sos: accepting cannot also change the owner",
+    actors.vol1,
+    "update",
+    "sos_requests/s-active",
+    "deny",
+    withSos("s-active", {
+      status: "assigned",
+      assignedResponder: responder("vol1"),
+      userId: "vol1",
+      updatedAt: T1,
+    }),
+  ),
+  u(
+    "SEC-5 sos: accepting cannot also move the location",
+    actors.vol1,
+    "update",
+    "sos_requests/s-active",
+    "deny",
+    withSos("s-active", {
+      status: "assigned",
+      assignedResponder: responder("vol1"),
+      location: gpsLocation({ lat: 1 }),
+      updatedAt: T1,
+    }),
+  ),
+  u(
+    "SEC-5 sos: pending applicant cannot accept",
+    actors.pending1,
+    "update",
+    "sos_requests/s-active",
+    "deny",
+    withSos("s-active", {
+      status: "assigned",
+      assignedResponder: responder("pending1"),
+      updatedAt: T1,
+    }),
+  ),
+  u(
+    "SEC-5 sos: role=volunteer without approval cannot accept",
+    actors.volNoStatus,
+    "update",
+    "sos_requests/s-active",
+    "deny",
+    withSos("s-active", {
+      status: "assigned",
+      assignedResponder: responder("volNoStatus"),
+      updatedAt: T1,
+    }),
+  ),
+  u(
+    "SEC-5 sos: assigned volunteer resolves",
+    actors.vol1,
+    "update",
+    "sos_requests/s-assigned",
+    "allow",
+    withSos("s-assigned", { status: "resolved", resolvedAt: T1, updatedAt: T1 }),
+  ),
+  u(
+    "SEC-5 sos: other volunteer cannot resolve",
+    actors.vol2,
+    "update",
+    "sos_requests/s-assigned",
+    "deny",
+    withSos("s-assigned", { status: "resolved", resolvedAt: T1, updatedAt: T1 }),
+  ),
+  u(
+    "SEC-5 sos: volunteer cannot resolve an unassigned request",
+    actors.vol1,
+    "update",
+    "sos_requests/s-active",
+    "deny",
+    withSos("s-active", { status: "resolved", resolvedAt: T1, updatedAt: T1 }),
+  ),
+  u(
+    "SEC-5 sos: volunteer cannot cancel",
+    actors.vol1,
+    "update",
+    "sos_requests/s-assigned",
+    "deny",
+    withSos("s-assigned", { status: "cancelled", cancelledAt: T1, updatedAt: T1 }),
+  ),
+  u(
+    "SEC-5 sos: resolving cannot also swap the responder",
+    actors.vol1,
+    "update",
+    "sos_requests/s-assigned",
+    "deny",
+    withSos("s-assigned", {
+      status: "resolved",
+      resolvedAt: T1,
+      updatedAt: T1,
+      assignedResponder: responder("vol2"),
+    }),
+  ),
+  u(
+    "SEC-5 sos: volunteer cannot reopen a resolved request",
+    actors.vol1,
+    "update",
+    "sos_requests/s-resolved",
+    "deny",
+    withSos("s-resolved", {
+      status: "assigned",
+      assignedResponder: responder("vol1"),
+      updatedAt: T1,
+    }),
+  ),
+  u(
+    "SEC-5 sos: volunteer cannot rewrite the message",
+    actors.vol1,
+    "update",
+    "sos_requests/s-active",
+    "deny",
+    withSos("s-active", { message: "forged", updatedAt: T1 }),
+  ),
+
+  // ---------------------------------------------------------------- sos: admin
+  u(
+    "sos: admin dispatches (assign without responderId)",
+    actors.admin1,
+    "update",
+    "sos_requests/s-active",
+    "allow",
+    withSos("s-active", {
+      status: "assigned",
+      assignedResponder: responder(undefined, { unit: "Unit 04", eta: "7 min" }),
+      updatedAt: T1,
+    }),
+  ),
+  u(
+    "sos: admin dispatch cannot carry extra fields",
+    actors.admin1,
+    "update",
+    "sos_requests/s-active",
+    "deny",
+    withSos("s-active", {
+      status: "assigned",
+      assignedResponder: responder(undefined, { role: "x" }),
+      updatedAt: T1,
+    }),
+  ),
+  u(
+    "sos: admin cannot dispatch a closed request",
+    actors.admin1,
+    "update",
+    "sos_requests/s-resolved",
+    "deny",
+    withSos("s-resolved", {
+      status: "assigned",
+      assignedResponder: responder(undefined),
+      updatedAt: T1,
+    }),
+  ),
+  u(
+    "sos: admin resolves",
+    actors.admin1,
+    "update",
+    "sos_requests/s-assigned",
+    "allow",
+    withSos("s-assigned", { status: "resolved", resolvedAt: T1, updatedAt: T1 }),
+  ),
+  u(
+    "sos: admin cancels",
+    actors.admin1,
+    "update",
+    "sos_requests/s-active",
+    "allow",
+    withSos("s-active", { status: "cancelled", cancelledAt: T1, updatedAt: T1 }),
+  ),
+  u(
+    "sos: admin cannot reopen a resolved request",
+    actors.admin1,
+    "update",
+    "sos_requests/s-resolved",
+    "deny",
+    withSos("s-resolved", { status: "active", updatedAt: T1 }),
+  ),
+  u(
+    "sos: admin cannot rewrite the requester's phone",
+    actors.admin1,
+    "update",
+    "sos_requests/s-active",
+    "deny",
+    withSos("s-active", { userPhone: "+8801799999999", updatedAt: T1 }),
+  ),
+  u(
+    "sos: admin cannot move the requester's location",
+    actors.admin1,
+    "update",
+    "sos_requests/s-active",
+    "deny",
+    withSos("s-active", { location: gpsLocation({ lat: 1 }), updatedAt: T1 }),
+  ),
+  u(
+    "sos: custom-claim admin resolves",
+    actors.claimAdmin,
+    "update",
+    "sos_requests/s-assigned",
+    "allow",
+    withSos("s-assigned", { status: "resolved", resolvedAt: T1, updatedAt: T1 }),
+  ),
+  u("sos: admin deletes a request", actors.admin1, "delete", "sos_requests/s-resolved", "allow"),
+  u("sos: owner cannot delete", actors.citizen1, "delete", "sos_requests/s-resolved", "deny"),
+  u("sos: volunteer cannot delete", actors.vol1, "delete", "sos_requests/s-resolved", "deny"),
+
+  // ---------------------------------------------------------------- other collections
+  u("shelters: anyone can read", null, "get", "shelters/s1", "allow"),
+  u("shelters: citizen cannot write", actors.citizen1, "create", "shelters/s1", "deny", {
+    name: "x",
+  }),
+  u("shelters: volunteer cannot write", actors.vol1, "create", "shelters/s1", "deny", {
+    name: "x",
+  }),
+  u("shelters: admin can write", actors.admin1, "create", "shelters/s1", "allow", { name: "x" }),
+  u("alerts: anyone can read", null, "get", "alerts/a1", "allow"),
+  u("alerts: citizen cannot write", actors.citizen1, "create", "alerts/a1", "deny", { title: "x" }),
+  u("alerts: admin can write", actors.admin1, "create", "alerts/a1", "allow", { title: "x" }),
+  // ---------------------------------------------------------------- donations
+  u(
+    "donations: anonymous valid money donation allowed",
+    null,
+    "create",
+    "donations/d1",
+    "allow",
+    donationDoc(),
+  ),
+  u(
+    "donations: authenticated valid money donation with matching donorUid allowed",
+    actors.citizen1,
+    "create",
+    "donations/d1",
+    "allow",
+    donationDoc({ donorUid: "citizen1" }),
+  ),
+  u(
+    "donations: authenticated valid supplies donation allowed",
+    actors.citizen1,
+    "create",
+    "donations/d2",
+    "allow",
+    donationDoc({
+      id: "d2",
+      type: "supplies",
+      amount: undefined,
+      items: ["Blankets", "Water bottles"],
+      status: "pledged",
+      donorUid: "citizen1",
+    }),
+  ),
+  u(
+    "donations: spoofing donorUid of another user denied",
+    actors.citizen1,
+    "create",
+    "donations/d1",
+    "deny",
+    donationDoc({ donorUid: "citizen2" }),
+  ),
+  u(
+    "donations: unauthenticated user setting donorUid denied",
+    null,
+    "create",
+    "donations/d1",
+    "deny",
+    donationDoc({ donorUid: "citizen1" }),
+  ),
+  u(
+    "donations: negative or zero amount denied",
+    actors.citizen1,
+    "create",
+    "donations/d1",
+    "deny",
+    donationDoc({ amount: 0 }),
+  ),
+  u(
+    "donations: excessive amount denied",
+    actors.citizen1,
+    "create",
+    "donations/d1",
+    "deny",
+    donationDoc({ amount: 99999999 }),
+  ),
+  u(
+    "donations: money donation missing amount denied",
+    actors.citizen1,
+    "create",
+    "donations/d1",
+    "deny",
+    {
+      id: "d1",
+      donorName: "Rahim",
+      donorEmail: "rahim@example.com",
+      type: "money",
+      shelterId: "mirpur",
+      shelterName: "Mirpur Shelter",
+      date: T0,
+      status: "completed",
+    },
+  ),
+  u(
+    "donations: supplies donation missing items denied",
+    actors.citizen1,
+    "create",
+    "donations/d1",
+    "deny",
+    donationDoc({
+      type: "supplies",
+      amount: undefined,
+    }),
+  ),
+  u(
+    "donations: supplies donation with empty items denied",
+    actors.citizen1,
+    "create",
+    "donations/d1",
+    "deny",
+    donationDoc({
+      type: "supplies",
+      amount: undefined,
+      items: [],
+    }),
+  ),
+  u(
+    "donations: id mismatch with document path denied",
+    actors.citizen1,
+    "create",
+    "donations/d1",
+    "deny",
+    donationDoc({ id: "d2" }),
+  ),
+  u(
+    "donations: extraneous fields denied",
+    actors.citizen1,
+    "create",
+    "donations/d1",
+    "deny",
+    donationDoc({ maliciousKey: "bad" }),
+  ),
+  u(
+    "donations: invalid status denied",
+    actors.citizen1,
+    "create",
+    "donations/d1",
+    "deny",
+    donationDoc({ status: "refunded" }),
+  ),
+  u("donations: admin can read all", actors.admin1, "get", "donations/d1", "allow"),
+  u(
+    "donations: donor can read their own donation",
+    actors.citizen1,
+    "get",
+    "donations/d1",
+    "allow",
+  ),
+  u(
+    "donations: other citizen cannot read someone else's donation",
+    actors.citizen2,
+    "get",
+    "donations/d1",
+    "deny",
+  ),
+  u("donations: unauthenticated cannot read donation", null, "get", "donations/d1", "deny"),
+  u("donations: citizen cannot delete", actors.citizen1, "delete", "donations/d1", "deny"),
+  u(
+    "donations: citizen cannot update",
+    actors.citizen1,
+    "update",
+    "donations/d1",
+    "deny",
+    donationDoc({ amount: 1000 }),
+  ),
+  u("donations: admin can delete", actors.admin1, "delete", "donations/d1", "allow"),
+  u("unknown collection: admin cannot read", actors.admin1, "get", "secrets/s1", "deny"),
+  u("unknown collection: citizen cannot write", actors.citizen1, "create", "secrets/s1", "deny", {
+    amount: 1,
+  }),
+
+  // push_subscriptions security scenarios
+  u(
+    "push_subscriptions: owner can get their subscription",
+    actors.citizen1,
+    "get",
+    "push_subscriptions/sub-c1",
+    "allow",
+  ),
+  u(
+    "push_subscriptions: other citizen cannot get someone else's subscription",
+    actors.citizen2,
+    "get",
+    "push_subscriptions/sub-c1",
+    "deny",
+  ),
+  u(
+    "push_subscriptions: unauthenticated cannot get subscription",
+    null,
+    "get",
+    "push_subscriptions/sub-c1",
+    "deny",
+  ),
+  u(
+    "push_subscriptions: admin can get any subscription",
+    actors.admin1,
+    "get",
+    "push_subscriptions/sub-c1",
+    "allow",
+  ),
+  u(
+    "push_subscriptions: citizen cannot list subscriptions",
+    actors.citizen1,
+    "list",
+    "push_subscriptions/sub-c1",
+    "deny",
+  ),
+  u(
+    "push_subscriptions: admin can list subscriptions",
+    actors.admin1,
+    "list",
+    "push_subscriptions/sub-c1",
+    "allow",
+  ),
+  u(
+    "push_subscriptions: citizen can create valid subscription for themselves",
+    actors.citizen1,
+    "create",
+    "push_subscriptions/sub-new",
+    "allow",
+    pushSubDoc({ id: "sub-new", userId: "citizen1" }),
+  ),
+  u(
+    "push_subscriptions: citizen cannot create subscription for another user",
+    actors.citizen1,
+    "create",
+    "push_subscriptions/sub-new",
+    "deny",
+    pushSubDoc({ id: "sub-new", userId: "citizen2" }),
+  ),
+  u(
+    "push_subscriptions: unauthenticated cannot create subscription",
+    null,
+    "create",
+    "push_subscriptions/sub-new",
+    "deny",
+    pushSubDoc({ id: "sub-new", userId: "citizen1" }),
+  ),
+  u(
+    "push_subscriptions: create denied when doc id does not match payload id",
+    actors.citizen1,
+    "create",
+    "push_subscriptions/sub-mismatch",
+    "deny",
+    pushSubDoc({ id: "sub-new", userId: "citizen1" }),
+  ),
+  u(
+    "push_subscriptions: create denied when keys are invalid or missing",
+    actors.citizen1,
+    "create",
+    "push_subscriptions/sub-new",
+    "deny",
+    pushSubDoc({ id: "sub-new", userId: "citizen1", keys: {} }),
+  ),
+  u(
+    "push_subscriptions: owner can update their subscription",
+    actors.citizen1,
+    "update",
+    "push_subscriptions/sub-c1",
+    "allow",
+    pushSubDoc({ id: "sub-c1", userId: "citizen1", enabled: false }),
+  ),
+  u(
+    "push_subscriptions: other citizen cannot update subscription",
+    actors.citizen2,
+    "update",
+    "push_subscriptions/sub-c1",
+    "deny",
+    pushSubDoc({ id: "sub-c1", userId: "citizen1", enabled: false }),
+  ),
+  u(
+    "push_subscriptions: owner can delete their subscription",
+    actors.citizen1,
+    "delete",
+    "push_subscriptions/sub-c1",
+    "allow",
+  ),
+  u(
+    "push_subscriptions: other citizen cannot delete subscription",
+    actors.citizen2,
+    "delete",
+    "push_subscriptions/sub-c1",
+    "deny",
+  ),
+  u(
+    "push_subscriptions: admin can delete any subscription",
+    actors.admin1,
+    "delete",
+    "push_subscriptions/sub-c1",
+    "allow",
+  ),
+];

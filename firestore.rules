@@ -1,0 +1,421 @@
+rules_version = '2';
+
+// =============================================================================
+// RescueLink Firestore Security Rules
+//
+// ROLE MODEL (single source of truth)
+//   - users/{uid}.role is one of 'user' | 'volunteer' | 'admin'.
+//   - 'admin' can NEVER be granted or removed from the client. Promote the first
+//     (and any later) administrator from the Firebase Console / Admin SDK, either by
+//     editing users/{uid}.role or by setting the custom claim { admin: true }.
+//   - A volunteer is only trusted when role == 'volunteer' AND volunteerStatus ==
+//     'approved' (or the trusted custom claim role == 'volunteer').
+//   - Legacy fields (isAdmin, admin, Role, userRole ...) are NOT honoured anywhere.
+// =============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // -------------------------------------------------------------------------
+    // Identity helpers
+    // -------------------------------------------------------------------------
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function myUserPath() {
+      return /databases/$(database)/documents/users/$(request.auth.uid);
+    }
+
+    function hasProfile() {
+      return isSignedIn() && exists(myUserPath());
+    }
+
+    function myProfile() {
+      return get(myUserPath()).data;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.get('admin', false) == true ||
+        (hasProfile() && myProfile().get('role', '') == 'admin')
+      );
+    }
+
+    function isApprovedVolunteer() {
+      return isSignedIn() && (
+        request.auth.token.get('role', '') == 'volunteer' ||
+        (
+          hasProfile() &&
+          myProfile().get('role', '') == 'volunteer' &&
+          myProfile().get('volunteerStatus', '') == 'approved'
+        )
+      );
+    }
+
+    // -------------------------------------------------------------------------
+    // Generic validators
+    // -------------------------------------------------------------------------
+    function isStr(v, minLen, maxLen) {
+      return v is string && v.size() >= minLen && v.size() <= maxLen;
+    }
+
+    // Optional string field: absent, or a string no longer than maxLen.
+    function isOptStr(data, key, maxLen) {
+      return !(key in data) || (data[key] is string && data[key].size() <= maxLen);
+    }
+
+    function isNonNegNumber(v) {
+      return v is number && v >= 0;
+    }
+
+    // -------------------------------------------------------------------------
+    // users/{userId}
+    // -------------------------------------------------------------------------
+    function validNewProfile(userId) {
+      let d = request.resource.data;
+      return d.keys().hasAll(['uid', 'email', 'displayName', 'role', 'volunteerStatus', 'createdAt', 'updatedAt'])
+        && d.keys().hasOnly(['uid', 'email', 'displayName', 'role', 'volunteerStatus', 'phone', 'area', 'createdAt', 'updatedAt'])
+        && d.uid == userId
+        && d.role == 'user'
+        && d.volunteerStatus == 'none'
+        && isStr(d.displayName, 1, 100)
+        && d.email is string
+        && d.email.size() <= 254
+        && (
+          request.auth.token.get('email', null) == null ||
+          d.email.lower() == request.auth.token.email.lower()
+        )
+        && isOptStr(d, 'phone', 20)
+        && isOptStr(d, 'area', 120)
+        && isStr(d.createdAt, 10, 40)
+        && d.updatedAt == d.createdAt;
+    }
+
+    function validVolunteerApplication(a) {
+      return a is map
+        && a.keys().hasAll(['appliedAt'])
+        && a.keys().hasOnly(['appliedAt', 'skills', 'area', 'notes'])
+        && isStr(a.appliedAt, 10, 40)
+        && (!('skills' in a) || (a.skills is list && a.skills.size() <= 20))
+        && isOptStr(a, 'area', 120)
+        && isOptStr(a, 'notes', 1000);
+    }
+
+    // The owner may edit ordinary profile fields, or apply to volunteer
+    // (none/rejected -> pending). Nothing else: role, status approval, uid, email and
+    // createdAt are immutable from the owner's side.
+    function validSelfProfileUpdate() {
+      let d = request.resource.data;
+      let changed = d.diff(resource.data).affectedKeys();
+      return isStr(d.updatedAt, 10, 40) && (
+        (
+          changed.hasOnly(['displayName', 'phone', 'area', 'updatedAt'])
+          && isStr(d.displayName, 1, 100)
+          && isOptStr(d, 'phone', 20)
+          && isOptStr(d, 'area', 120)
+        ) || (
+          changed.hasOnly(['volunteerStatus', 'volunteerApplication', 'updatedAt'])
+          && changed.hasAll(['volunteerStatus', 'volunteerApplication'])
+          && d.volunteerStatus == 'pending'
+          && resource.data.get('volunteerStatus', 'none') in ['none', 'rejected']
+          && validVolunteerApplication(d.volunteerApplication)
+        )
+      );
+    }
+
+    // An administrator manages volunteers: approve / reject / revoke. Administrators
+    // can never create or remove another administrator from the client, and cannot
+    // modify an administrator's document here.
+    function validAdminProfileUpdate() {
+      let d = request.resource.data;
+      let changed = d.diff(resource.data).affectedKeys();
+      return resource.data.get('role', '') in ['', 'user', 'volunteer']
+        && changed.hasOnly(['role', 'volunteerStatus', 'volunteerApplication', 'updatedAt'])
+        && isStr(d.updatedAt, 10, 40)
+        && d.role in ['user', 'volunteer']
+        && d.volunteerStatus in ['none', 'pending', 'approved', 'rejected']
+        && (
+          !changed.hasAny(['role', 'volunteerStatus']) ||
+          ((d.role == 'volunteer') == (d.volunteerStatus == 'approved'))
+        )
+        && (!('volunteerApplication' in d) || validVolunteerApplication(d.volunteerApplication));
+    }
+
+    match /users/{userId} {
+      // A user reads only their own profile; administrators can read any profile.
+      allow get: if isSelf(userId) || isAdmin();
+
+      // Listing profiles exposes emails and phone numbers: administrators only.
+      allow list: if isAdmin();
+
+      allow create: if isSelf(userId) && validNewProfile(userId);
+
+      allow update: if (isSelf(userId) && validSelfProfileUpdate())
+                    || (isAdmin() && validAdminProfileUpdate());
+
+      allow delete: if isAdmin()
+                    && !isSelf(userId)
+                    && resource.data.get('role', '') != 'admin';
+    }
+
+    // -------------------------------------------------------------------------
+    // Shelters, alerts and donations (Phase 5 - shared persistence).
+    // -------------------------------------------------------------------------
+    match /shelters/{shelterId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /alerts/{alertId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    function validNewDonation(donationId) {
+      let d = request.resource.data;
+      return d.keys().hasAll(['id', 'donorName', 'donorEmail', 'type', 'shelterId', 'shelterName', 'date', 'status'])
+        && d.keys().hasOnly(['id', 'donorName', 'donorEmail', 'donorUid', 'type', 'amount', 'items', 'shelterId', 'shelterName', 'date', 'status'])
+        && d.id == donationId
+        && isStr(d.id, 1, 128)
+        && isStr(d.donorName, 1, 100)
+        && d.donorEmail is string
+        && d.donorEmail.size() <= 254
+        && (!('donorUid' in d) || (isSignedIn() && d.donorUid == request.auth.uid))
+        && d.type in ['money', 'supplies']
+        && isStr(d.shelterId, 1, 100)
+        && isStr(d.shelterName, 1, 200)
+        && isStr(d.date, 10, 40)
+        && d.status in ['completed', 'pledged']
+        && (
+          (
+            d.type == 'money'
+            && 'amount' in d
+            && d.amount is number
+            && d.amount > 0
+            && d.amount <= 10000000
+            && (!('items' in d) || d.items.size() == 0)
+          ) || (
+            d.type == 'supplies'
+            && 'items' in d
+            && d.items is list
+            && d.items.size() >= 1
+            && d.items.size() <= 20
+            && (!('amount' in d) || d.amount == 0)
+          )
+        );
+    }
+
+    match /donations/{donationId} {
+      // Donors may create donation pledges or records; admins review them.
+      allow create: if validNewDonation(donationId);
+      allow get: if isAdmin() || (isSignedIn() && resource.data.get('donorUid', '') == request.auth.uid);
+      allow list: if isAdmin();
+      allow update, delete: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // sos_requests/{requestId}
+    // -------------------------------------------------------------------------
+    function validLatLng(l) {
+      return l.lat is number && l.lng is number
+        && l.lat >= -90 && l.lat <= 90
+        && l.lng >= -180 && l.lng <= 180;
+    }
+
+    function validNewSosLocation(l) {
+      return l is map
+        && l.keys().hasAll(['address', 'source'])
+        && l.keys().hasOnly(['address', 'source', 'lat', 'lng', 'accuracyMeters', 'updatedAt'])
+        && isStr(l.address, 1, 300)
+        && l.source in ['gps', 'manual']
+        && isOptStr(l, 'updatedAt', 40)
+        && (
+          (
+            l.source == 'manual'
+            && l.address.size() >= 5
+            && !('lat' in l) && !('lng' in l) && !('accuracyMeters' in l)
+          ) || (
+            l.source == 'gps'
+            && l.keys().hasAll(['lat', 'lng'])
+            && validLatLng(l)
+            && (!('accuracyMeters' in l) || isNonNegNumber(l.accuracyMeters))
+          )
+        );
+    }
+
+    function validNewSos() {
+      let d = request.resource.data;
+      return d.keys().hasAll(['userId', 'userName', 'location', 'status', 'createdAt', 'updatedAt'])
+        && d.keys().hasOnly(['userId', 'userName', 'userPhone', 'userEmail', 'message', 'location', 'status', 'createdAt', 'updatedAt'])
+        && d.userId == request.auth.uid
+        && d.status == 'active'
+        && isStr(d.userName, 1, 100)
+        && isOptStr(d, 'userPhone', 20)
+        && isOptStr(d, 'userEmail', 254)
+        && isOptStr(d, 'message', 1000)
+        && isStr(d.createdAt, 10, 40)
+        && d.updatedAt == d.createdAt
+        && validNewSosLocation(d.location);
+    }
+
+    function sosChanged() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+
+    function isOpenSos() {
+      return resource.data.status in ['active', 'assigned'];
+    }
+
+    function isSosOwner() {
+      return request.auth.uid == resource.data.userId;
+    }
+
+    function isAssignedResponder() {
+      return resource.data.status == 'assigned'
+        && resource.data.get('assignedResponder', {}).get('responderId', '') == request.auth.uid;
+    }
+
+    function validResponder(r) {
+      return r is map
+        && r.keys().hasAll(['unit', 'eta'])
+        && r.keys().hasOnly(['unit', 'eta', 'responderId', 'assignedAt'])
+        && isStr(r.unit, 1, 100)
+        && isStr(r.eta, 1, 20)
+        && isOptStr(r, 'responderId', 128)
+        && isOptStr(r, 'assignedAt', 40);
+    }
+
+    // Time stamps that the client may add on a status change.
+    function validSosStamps() {
+      let d = request.resource.data;
+      return isStr(d.updatedAt, 10, 40)
+        && isOptStr(d, 'resolvedAt', 40)
+        && isOptStr(d, 'cancelledAt', 40);
+    }
+
+    // --- transitions -------------------------------------------------------
+    function cancelsSos() {
+      return isOpenSos()
+        && request.resource.data.status == 'cancelled'
+        && sosChanged().hasOnly(['status', 'updatedAt', 'cancelledAt']);
+    }
+
+    function resolvesSos() {
+      return isOpenSos()
+        && request.resource.data.status == 'resolved'
+        && sosChanged().hasOnly(['status', 'updatedAt', 'resolvedAt']);
+    }
+
+    // The requester may only cancel, resolve (close) or share their real GPS position
+    // while the request is still open. Everything else is immutable for them.
+    function ownerSharesLocation() {
+      let d = request.resource.data;
+      let old = resource.data;
+      return isOpenSos()
+        && d.status == old.status
+        && sosChanged().hasOnly(['location', 'updatedAt'])
+        && old.location.get('source', 'gps') == 'gps'
+        && d.location.diff(old.location).affectedKeys().hasOnly(['lat', 'lng', 'accuracyMeters', 'updatedAt'])
+        && validLatLng(d.location)
+        && (!('accuracyMeters' in d.location) || isNonNegNumber(d.location.accuracyMeters))
+        && isOptStr(d.location, 'updatedAt', 40);
+    }
+
+    // An approved volunteer may accept an unassigned request for themselves (or refresh
+    // their own acceptance) and resolve requests assigned to them. Nothing else.
+    function volunteerAccepts() {
+      let d = request.resource.data;
+      return isApprovedVolunteer()
+        && (resource.data.status == 'active' || isAssignedResponder())
+        && d.status == 'assigned'
+        && sosChanged().hasOnly(['status', 'assignedResponder', 'updatedAt'])
+        && validResponder(d.assignedResponder)
+        && d.assignedResponder.responderId == request.auth.uid;
+    }
+
+    function volunteerResolves() {
+      return isApprovedVolunteer()
+        && isAssignedResponder()
+        && request.resource.data.status == 'resolved'
+        && sosChanged().hasOnly(['status', 'updatedAt', 'resolvedAt']);
+    }
+
+    // Administrators dispatch / close requests but cannot rewrite who asked for help,
+    // where they are, or their phone number.
+    function adminDispatches() {
+      return isAdmin()
+        && isOpenSos()
+        && request.resource.data.status == 'assigned'
+        && sosChanged().hasOnly(['status', 'assignedResponder', 'updatedAt'])
+        && validResponder(request.resource.data.assignedResponder);
+    }
+
+    match /sos_requests/{requestId} {
+      // The requester, administrators and approved volunteers can read.
+      allow read: if isSignedIn() && (
+        request.auth.uid == resource.data.userId ||
+        isAdmin() ||
+        isApprovedVolunteer()
+      );
+
+      allow create: if isSignedIn() && validNewSos();
+
+      allow update: if isSignedIn() && validSosStamps() && (
+        (isSosOwner() && (cancelsSos() || resolvesSos() || ownerSharesLocation())) ||
+        volunteerAccepts() ||
+        volunteerResolves() ||
+        adminDispatches() ||
+        (isAdmin() && (cancelsSos() || resolvesSos()))
+      );
+
+      allow delete: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // push_subscriptions/{subId}
+    // -------------------------------------------------------------------------
+    function validPushSubscription(subId) {
+      let d = request.resource.data;
+      return d.keys().hasAll(['id', 'userId', 'endpoint', 'keys', 'topics', 'enabled', 'createdAt', 'updatedAt'])
+        && d.keys().hasOnly(['id', 'userId', 'endpoint', 'keys', 'topics', 'enabled', 'locationName', 'createdAt', 'updatedAt', 'serverTimestamp'])
+        && d.id == subId
+        && d.userId == request.auth.uid
+        && isStr(d.endpoint, 10, 2048)
+        && d.keys is map
+        && d.keys.keys().hasAll(['p256dh', 'auth'])
+        && d.keys.keys().hasOnly(['p256dh', 'auth'])
+        && isStr(d.keys.p256dh, 16, 256)
+        && isStr(d.keys.auth, 8, 128)
+        && d.topics is list
+        && d.topics.size() <= 10
+        && d.enabled is bool
+        && isOptStr(d, 'locationName', 100)
+        && isStr(d.createdAt, 10, 40)
+        && isStr(d.updatedAt, 10, 40);
+    }
+
+    match /push_subscriptions/{subId} {
+      // Users can only read and manage their own push subscriptions; admins can audit or prune
+      allow get: if isSignedIn() && (request.auth.uid == resource.data.userId || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isSignedIn() && validPushSubscription(subId);
+      allow update: if isSignedIn() && (
+        (request.auth.uid == resource.data.userId && validPushSubscription(subId)) ||
+        isAdmin()
+      );
+      allow delete: if isSignedIn() && (request.auth.uid == resource.data.userId || isAdmin());
+    }
+
+    // -------------------------------------------------------------------------
+    // Everything else is closed by default.
+    // -------------------------------------------------------------------------
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "900119595279",
+    "project_id": "rescue-linkbd",
+    "storage_bucket": "rescue-linkbd.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:900119595279:android:b9236b1cadd7623246167a",
+        "android_client_info": {
+          "package_name": "com.rescuelink.emergency"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "900119595279-ip89u5crbhs6rtasjvjei4qc3s0fnfpr.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAWrSwH5W_tkMO3deLjYAkEQIkujvU3ZF8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "900119595279-ip89u5crbhs6rtasjvjei4qc3s0fnfpr.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

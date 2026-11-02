@@ -1,8 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { MapPin, BellRing, Users, Check } from "lucide-react";
+import { toast } from "sonner";
 
 import { Card, Screen, TopBar } from "@/components/rl";
+import {
+  subscribeToPushNotifications,
+  isPushNotificationSupported,
+} from "@/lib/weather/push-service";
+import { checkLocationPermission, requestLocationPermission } from "@/lib/location";
 
 export const Route = createFileRoute("/permissions")({
   head: () => ({
@@ -45,7 +51,7 @@ const items = [
     icon: Users,
     tone: "bg-safe/10 text-safe",
     title: "Emergency Contacts",
-    body: "Add trusted contacts so we can alert them automatically when you send an SOS.",
+    body: "Add trusted family members and friends so you or first responders can quickly call them during an emergency.",
     cta: "Allow Contacts",
   },
 ];
@@ -53,9 +59,75 @@ const items = [
 function Permissions() {
   const [granted, setGranted] = useState<string[]>([]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    // Check existing notification permission
+    if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+      setGranted((p) => (p.includes("notifications") ? p : [...p, "notifications"]));
+    }
+
+    // Check existing contacts permission flag
+    if (localStorage.getItem("rl_contacts_permission") === "granted") {
+      setGranted((p) => (p.includes("contacts") ? p : [...p, "contacts"]));
+    }
+
+    // Check location permission
+    checkLocationPermission()
+      .then((res) => {
+        if (res.granted) {
+          setGranted((p) => (p.includes("location") ? p : [...p, "location"]));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleRequest = async (id: string) => {
+    if (id === "location") {
+      const granted = await requestLocationPermission();
+      if (granted) {
+        setGranted((p) => (p.includes("location") ? p : [...p, "location"]));
+        toast.success("Location access granted", {
+          description: "RescueLink can now acquire accurate coordinates during emergencies.",
+        });
+      } else {
+        toast.error("Location permission denied", {
+          description:
+            "Please enable location in your device or browser settings to track live position.",
+        });
+      }
+    } else if (id === "notifications") {
+      if (typeof window === "undefined" || !isPushNotificationSupported()) {
+        toast.error("Push notifications are not supported by this browser.");
+        return;
+      }
+      try {
+        const result = await subscribeToPushNotifications();
+        if (result.success || Notification.permission === "granted") {
+          setGranted((p) => (p.includes("notifications") ? p : [...p, "notifications"]));
+          toast.success("Notifications enabled", {
+            description: "You will receive critical emergency alerts and updates.",
+          });
+        } else {
+          toast.error("Notification permission denied", {
+            description: "You can enable notifications in your browser's address bar settings.",
+          });
+        }
+      } catch (e) {
+        toast.error("Could not request notification permission.");
+      }
+    } else if (id === "contacts") {
+      localStorage.setItem("rl_contacts_permission", "granted");
+      setGranted((p) => (p.includes("contacts") ? p : [...p, "contacts"]));
+      toast.success("Emergency contacts access enabled", {
+        description: "Your saved contacts can now be dialed with one touch.",
+      });
+    }
+  };
+
   return (
     <Screen>
-      <TopBar title="Permissions" subtitle="You stay in control" back="/onboarding" />
+      <TopBar title="Permissions" subtitle="You stay in control" back="/profile" />
 
       <div className="px-4 pt-5">
         <h2 className="text-[21px] font-extrabold leading-tight text-navy">
@@ -81,7 +153,8 @@ function Permissions() {
                 </div>
               </div>
               <button
-                onClick={() => setGranted((p) => (p.includes(id) ? p : [...p, id]))}
+                type="button"
+                onClick={() => handleRequest(id)}
                 className={`press mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl text-[13.5px] font-bold ${
                   on ? "bg-safe/12 text-safe" : "bg-navy text-navy-foreground"
                 }`}

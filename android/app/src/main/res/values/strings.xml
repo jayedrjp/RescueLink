@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">RescueLink</string>
+    <string name="title_activity_main">RescueLink</string>
+    <string name="package_name">com.rescuelink.emergency</string>
+    <string name="custom_url_scheme">com.rescuelink.emergency</string>
+</resources>

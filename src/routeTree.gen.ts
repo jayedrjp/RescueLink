@@ -10,21 +10,40 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AlertsRouteImport } from './routes/alerts'
 import { Route as DonateRouteImport } from './routes/donate'
+import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
+import { Route as HelpRouteImport } from './routes/help'
+import { Route as InstructionsRouteImport } from './routes/instructions'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as MapRouteImport } from './routes/map'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as PermissionsRouteImport } from './routes/permissions'
 import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as RegisterRouteImport } from './routes/register'
 import { Route as ServicesRouteImport } from './routes/services'
 import { Route as SosRouteImport } from './routes/sos'
+import { Route as SupportRouteImport } from './routes/support'
 import { Route as VolunteerRouteImport } from './routes/volunteer'
+import { Route as WelcomeRouteImport } from './routes/welcome'
+import { Route as AdminAlertsRouteImport } from './routes/admin_.alerts'
+import { Route as AdminCitizensRouteImport } from './routes/admin_.citizens'
+import { Route as AdminDonationsRouteImport } from './routes/admin_.donations'
+import { Route as AdminReportsRouteImport } from './routes/admin_.reports'
+import { Route as AdminUsersRouteImport } from './routes/admin_.users'
 import { Route as SheltersIndexRouteImport } from './routes/shelters.index'
 import { Route as SheltersShelterIdRouteImport } from './routes/shelters.$shelterId'
+import { Route as VolunteerSosRouteImport } from './routes/volunteer_.sos'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AlertsRoute = AlertsRouteImport.update({
@@ -35,6 +54,26 @@ const AlertsRoute = AlertsRouteImport.update({
 const DonateRoute = DonateRouteImport.update({
   id: '/donate',
   path: '/donate',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
+  id: '/forgot-password',
+  path: '/forgot-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HelpRoute = HelpRouteImport.update({
+  id: '/help',
+  path: '/help',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InstructionsRoute = InstructionsRouteImport.update({
+  id: '/instructions',
+  path: '/instructions',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MapRoute = MapRouteImport.update({
@@ -57,6 +96,11 @@ const ProfileRoute = ProfileRouteImport.update({
   path: '/profile',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RegisterRoute = RegisterRouteImport.update({
+  id: '/register',
+  path: '/register',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ServicesRoute = ServicesRouteImport.update({
   id: '/services',
   path: '/services',
@@ -67,9 +111,44 @@ const SosRoute = SosRouteImport.update({
   path: '/sos',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SupportRoute = SupportRouteImport.update({
+  id: '/support',
+  path: '/support',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const VolunteerRoute = VolunteerRouteImport.update({
   id: '/volunteer',
   path: '/volunteer',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WelcomeRoute = WelcomeRouteImport.update({
+  id: '/welcome',
+  path: '/welcome',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminAlertsRoute = AdminAlertsRouteImport.update({
+  id: '/admin_/alerts',
+  path: '/admin/alerts',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminCitizensRoute = AdminCitizensRouteImport.update({
+  id: '/admin_/citizens',
+  path: '/admin/citizens',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminDonationsRoute = AdminDonationsRouteImport.update({
+  id: '/admin_/donations',
+  path: '/admin/donations',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminReportsRoute = AdminReportsRouteImport.update({
+  id: '/admin_/reports',
+  path: '/admin/reports',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminUsersRoute = AdminUsersRouteImport.update({
+  id: '/admin_/users',
+  path: '/admin/users',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SheltersIndexRoute = SheltersIndexRouteImport.update({
@@ -82,107 +161,210 @@ const SheltersShelterIdRoute = SheltersShelterIdRouteImport.update({
   path: '/shelters/$shelterId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const VolunteerSosRoute = VolunteerSosRouteImport.update({
+  id: '/volunteer_/sos',
+  path: '/volunteer/sos',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/alerts': typeof AlertsRoute
   '/donate': typeof DonateRoute
+  '/forgot-password': typeof ForgotPasswordRoute
+  '/help': typeof HelpRoute
+  '/instructions': typeof InstructionsRoute
+  '/login': typeof LoginRoute
   '/map': typeof MapRoute
   '/onboarding': typeof OnboardingRoute
   '/permissions': typeof PermissionsRoute
   '/profile': typeof ProfileRoute
+  '/register': typeof RegisterRoute
   '/services': typeof ServicesRoute
   '/sos': typeof SosRoute
+  '/support': typeof SupportRoute
   '/volunteer': typeof VolunteerRoute
+  '/welcome': typeof WelcomeRoute
+  '/admin/alerts': typeof AdminAlertsRoute
+  '/admin/citizens': typeof AdminCitizensRoute
+  '/admin/donations': typeof AdminDonationsRoute
+  '/admin/reports': typeof AdminReportsRoute
+  '/admin/users': typeof AdminUsersRoute
   '/shelters/$shelterId': typeof SheltersShelterIdRoute
+  '/volunteer/sos': typeof VolunteerSosRoute
   '/shelters/': typeof SheltersIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/alerts': typeof AlertsRoute
   '/donate': typeof DonateRoute
+  '/forgot-password': typeof ForgotPasswordRoute
+  '/help': typeof HelpRoute
+  '/instructions': typeof InstructionsRoute
+  '/login': typeof LoginRoute
   '/map': typeof MapRoute
   '/onboarding': typeof OnboardingRoute
   '/permissions': typeof PermissionsRoute
   '/profile': typeof ProfileRoute
+  '/register': typeof RegisterRoute
   '/services': typeof ServicesRoute
   '/sos': typeof SosRoute
+  '/support': typeof SupportRoute
   '/volunteer': typeof VolunteerRoute
+  '/welcome': typeof WelcomeRoute
+  '/admin/alerts': typeof AdminAlertsRoute
+  '/admin/citizens': typeof AdminCitizensRoute
+  '/admin/donations': typeof AdminDonationsRoute
+  '/admin/reports': typeof AdminReportsRoute
+  '/admin/users': typeof AdminUsersRoute
   '/shelters/$shelterId': typeof SheltersShelterIdRoute
+  '/volunteer/sos': typeof VolunteerSosRoute
   '/shelters': typeof SheltersIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/alerts': typeof AlertsRoute
   '/donate': typeof DonateRoute
+  '/forgot-password': typeof ForgotPasswordRoute
+  '/help': typeof HelpRoute
+  '/instructions': typeof InstructionsRoute
+  '/login': typeof LoginRoute
   '/map': typeof MapRoute
   '/onboarding': typeof OnboardingRoute
   '/permissions': typeof PermissionsRoute
   '/profile': typeof ProfileRoute
+  '/register': typeof RegisterRoute
   '/services': typeof ServicesRoute
   '/sos': typeof SosRoute
+  '/support': typeof SupportRoute
   '/volunteer': typeof VolunteerRoute
+  '/welcome': typeof WelcomeRoute
+  '/admin_/alerts': typeof AdminAlertsRoute
+  '/admin_/citizens': typeof AdminCitizensRoute
+  '/admin_/donations': typeof AdminDonationsRoute
+  '/admin_/reports': typeof AdminReportsRoute
+  '/admin_/users': typeof AdminUsersRoute
   '/shelters/$shelterId': typeof SheltersShelterIdRoute
+  '/volunteer_/sos': typeof VolunteerSosRoute
   '/shelters/': typeof SheltersIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/admin'
     | '/alerts'
     | '/donate'
+    | '/forgot-password'
+    | '/help'
+    | '/instructions'
+    | '/login'
     | '/map'
     | '/onboarding'
     | '/permissions'
     | '/profile'
+    | '/register'
     | '/services'
     | '/sos'
+    | '/support'
     | '/volunteer'
+    | '/welcome'
+    | '/admin/alerts'
+    | '/admin/citizens'
+    | '/admin/donations'
+    | '/admin/reports'
+    | '/admin/users'
     | '/shelters/$shelterId'
+    | '/volunteer/sos'
     | '/shelters/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/admin'
     | '/alerts'
     | '/donate'
+    | '/forgot-password'
+    | '/help'
+    | '/instructions'
+    | '/login'
     | '/map'
     | '/onboarding'
     | '/permissions'
     | '/profile'
+    | '/register'
     | '/services'
     | '/sos'
+    | '/support'
     | '/volunteer'
+    | '/welcome'
+    | '/admin/alerts'
+    | '/admin/citizens'
+    | '/admin/donations'
+    | '/admin/reports'
+    | '/admin/users'
     | '/shelters/$shelterId'
+    | '/volunteer/sos'
     | '/shelters'
   id:
     | '__root__'
     | '/'
+    | '/admin'
     | '/alerts'
     | '/donate'
+    | '/forgot-password'
+    | '/help'
+    | '/instructions'
+    | '/login'
     | '/map'
     | '/onboarding'
     | '/permissions'
     | '/profile'
+    | '/register'
     | '/services'
     | '/sos'
+    | '/support'
     | '/volunteer'
+    | '/welcome'
+    | '/admin_/alerts'
+    | '/admin_/citizens'
+    | '/admin_/donations'
+    | '/admin_/reports'
+    | '/admin_/users'
     | '/shelters/$shelterId'
+    | '/volunteer_/sos'
     | '/shelters/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRoute
   AlertsRoute: typeof AlertsRoute
   DonateRoute: typeof DonateRoute
+  ForgotPasswordRoute: typeof ForgotPasswordRoute
+  HelpRoute: typeof HelpRoute
+  InstructionsRoute: typeof InstructionsRoute
+  LoginRoute: typeof LoginRoute
   MapRoute: typeof MapRoute
   OnboardingRoute: typeof OnboardingRoute
   PermissionsRoute: typeof PermissionsRoute
   ProfileRoute: typeof ProfileRoute
+  RegisterRoute: typeof RegisterRoute
   ServicesRoute: typeof ServicesRoute
   SosRoute: typeof SosRoute
+  SupportRoute: typeof SupportRoute
   VolunteerRoute: typeof VolunteerRoute
+  WelcomeRoute: typeof WelcomeRoute
+  AdminAlertsRoute: typeof AdminAlertsRoute
+  AdminCitizensRoute: typeof AdminCitizensRoute
+  AdminDonationsRoute: typeof AdminDonationsRoute
+  AdminReportsRoute: typeof AdminReportsRoute
+  AdminUsersRoute: typeof AdminUsersRoute
   SheltersShelterIdRoute: typeof SheltersShelterIdRoute
+  VolunteerSosRoute: typeof VolunteerSosRoute
   SheltersIndexRoute: typeof SheltersIndexRoute
 }
 
@@ -193,6 +375,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/alerts': {
@@ -207,6 +396,34 @@ declare module '@tanstack/react-router' {
       path: '/donate'
       fullPath: '/donate'
       preLoaderRoute: typeof DonateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/forgot-password': {
+      id: '/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof ForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/help': {
+      id: '/help'
+      path: '/help'
+      fullPath: '/help'
+      preLoaderRoute: typeof HelpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/instructions': {
+      id: '/instructions'
+      path: '/instructions'
+      fullPath: '/instructions'
+      preLoaderRoute: typeof InstructionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/map': {
@@ -237,6 +454,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProfileRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/register': {
+      id: '/register'
+      path: '/register'
+      fullPath: '/register'
+      preLoaderRoute: typeof RegisterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/services': {
       id: '/services'
       path: '/services'
@@ -251,11 +475,60 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SosRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/support': {
+      id: '/support'
+      path: '/support'
+      fullPath: '/support'
+      preLoaderRoute: typeof SupportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/volunteer': {
       id: '/volunteer'
       path: '/volunteer'
       fullPath: '/volunteer'
       preLoaderRoute: typeof VolunteerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/welcome': {
+      id: '/welcome'
+      path: '/welcome'
+      fullPath: '/welcome'
+      preLoaderRoute: typeof WelcomeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin_/alerts': {
+      id: '/admin_/alerts'
+      path: '/admin/alerts'
+      fullPath: '/admin/alerts'
+      preLoaderRoute: typeof AdminAlertsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin_/citizens': {
+      id: '/admin_/citizens'
+      path: '/admin/citizens'
+      fullPath: '/admin/citizens'
+      preLoaderRoute: typeof AdminCitizensRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin_/donations': {
+      id: '/admin_/donations'
+      path: '/admin/donations'
+      fullPath: '/admin/donations'
+      preLoaderRoute: typeof AdminDonationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin_/reports': {
+      id: '/admin_/reports'
+      path: '/admin/reports'
+      fullPath: '/admin/reports'
+      preLoaderRoute: typeof AdminReportsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin_/users': {
+      id: '/admin_/users'
+      path: '/admin/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof AdminUsersRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/shelters/': {
@@ -272,21 +545,42 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SheltersShelterIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/volunteer_/sos': {
+      id: '/volunteer_/sos'
+      path: '/volunteer/sos'
+      fullPath: '/volunteer/sos'
+      preLoaderRoute: typeof VolunteerSosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRoute,
   AlertsRoute: AlertsRoute,
   DonateRoute: DonateRoute,
+  ForgotPasswordRoute: ForgotPasswordRoute,
+  HelpRoute: HelpRoute,
+  InstructionsRoute: InstructionsRoute,
+  LoginRoute: LoginRoute,
   MapRoute: MapRoute,
   OnboardingRoute: OnboardingRoute,
   PermissionsRoute: PermissionsRoute,
   ProfileRoute: ProfileRoute,
+  RegisterRoute: RegisterRoute,
   ServicesRoute: ServicesRoute,
   SosRoute: SosRoute,
+  SupportRoute: SupportRoute,
   VolunteerRoute: VolunteerRoute,
+  WelcomeRoute: WelcomeRoute,
+  AdminAlertsRoute: AdminAlertsRoute,
+  AdminCitizensRoute: AdminCitizensRoute,
+  AdminDonationsRoute: AdminDonationsRoute,
+  AdminReportsRoute: AdminReportsRoute,
+  AdminUsersRoute: AdminUsersRoute,
   SheltersShelterIdRoute: SheltersShelterIdRoute,
+  VolunteerSosRoute: VolunteerSosRoute,
   SheltersIndexRoute: SheltersIndexRoute,
 }
 export const routeTree = rootRouteImport
