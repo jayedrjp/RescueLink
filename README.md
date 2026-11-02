@@ -1,4 +1,4 @@
-# RescueLink — সাহায্য হোক সহজ
+# RescueLink — সাহায্য হোক সহজ 
 
 RescueLink is a proposed centralized digital disaster-response platform for Bangladesh, connecting disaster-affected people with shelters, emergency services, volunteers, NGOs, and donors during floods, cyclones, storms, and other natural disasters.
 
