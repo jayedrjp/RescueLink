@@ -5,209 +5,349 @@
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-v4-38bdf8.svg)](https://tailwindcss.com/)
 [![Firebase Firestore](https://img.shields.io/badge/Firebase-Firestore-ffca28.svg)](https://firebase.google.com/)
 [![Leaflet](https://img.shields.io/badge/Leaflet-1.9.4-199900.svg)](https://leafletjs.com/)
-
-**RescueLink** is a centralized emergency response and disaster-relief progressive web application engineered for Bangladesh. It connects citizens facing floods, cyclones, building collapses, and natural disasters with emergency shelters, active responders, verified helplines, relief supplies, and volunteer support in real time.
-
-> **Status:** Academic prototype, developed as part of the CSE 416 (Software Project Design and Development) course project at the University of Information Technology and Sciences (UITS).
+[![Capacitor](https://img.shields.io/badge/Capacitor-Android%208.5-1192e8.svg)](https://capacitorjs.com/)
 
 ---
 
-## ✨ Features & Workflows
+## 1. Project Overview & Purpose
 
-- **Honest Emergency SOS Dispatch:** Immediate SOS submission with device GPS coordinates or manual landmark address, live Firestore status tracking (`active` → `assigned` → `resolved`), zero fabricated responses/ETAs, and direct 999 emergency hotline integration with automatic retry handling.
-- **Interactive Disaster Map:** Live Leaflet and OpenStreetMap integration displaying verified emergency hospitals, fire service units, police stations, pharmacies, and shelters across Bangladesh with dialable helplines, Haversine distance, and directions.
-- **Shelter Directory:** Real-time bed capacity and occupancy tracking, facilities checklist, relief needs, search, and dynamic distance calculations.
-- **Disaster Alerts:** Live emergency cyclone, flood, and weather warnings categorized by severity (`critical`, `high`, `moderate`) with relative timestamps.
-- **Donation & Relief Support:** Financial donations and relief supply contributions (dry food, water purification, medicines, blankets) tracked live.
-- **Volunteer Management:** Structured volunteer onboarding, skill selection, administrator verification, and a live SOS responder dispatch queue (`/volunteer/sos`) with atomic claim and resolution transitions.
-- **Role-Based Administrator Portal:** Privilege-escalation-proof administration, real-time citizen and volunteer directory oversight, volunteer approvals/rejections with persisted review notes, shelter capacity adjustments, alert broadcasts, and emergency dispatch.
-- **User Profile & Safety:** Per-user isolated emergency contacts (`rl_contacts_${uid}`) with full CRUD, saved shelters bookmarking, truthful device permissions dashboard, and volunteer task participation.
+**RescueLink** is a modern, high-resilience emergency response and disaster-relief platform engineered for Bangladesh. Developed as a software-only disaster management system, RescueLink connects citizens facing severe flooding, cyclones, waterlogging, building collapses, and natural disasters directly with emergency shelters, active responders, verified helplines, relief supplies, and volunteer teams in real time.
 
----
+The platform provides:
+- Immediate 3-step Emergency SOS submission with live status tracking (`active` → `assigned` → `resolved`).
+- Zero fabricated responses, fake units, or simulated ETAs.
+- Direct integration with Bangladesh's national `999` emergency hotline and offline phone fallback.
+- Dynamic Haversine distance calculations and directions to verified medical facilities, fire stations, police stations, and shelters.
+- Full offline-first local cache fallback so critical contact numbers and safety procedures remain available when network connectivity drops.
 
-## 🛠️ Technology Stack
-
-| Layer                  | Technology                                                                                    | Notes / Purpose                                                                  |
-| ---------------------- | --------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| **Framework**          | [TanStack Start](https://tanstack.com/start) + [TanStack Router](https://tanstack.com/router) | Full-stack SSR and client routing with type-safe route guards                    |
-| **UI Library**         | [React 19](https://react.dev)                                                                 | Modern concurrent rendering                                                      |
-| **Styling & Icons**    | [Tailwind CSS v4](https://tailwindcss.com) + Radix UI + Lucide React                          | Emergency red design system (`#E6293A`), Plus Jakarta Sans, Noto Sans Bengali    |
-| **Backend & Database** | [Google Cloud Firestore](https://firebase.google.com/docs/firestore)                          | Real-time snapshot listeners for SOS, shelters, alerts, and donations            |
-| **Authentication**     | [Firebase Authentication](https://firebase.google.com/docs/auth)                              | Email/password + Google OAuth; session persistence with non-blocking resolution  |
-| **Maps & Geography**   | [Leaflet](https://leafletjs.com) + OpenStreetMap Nominatim & Overpass API                     | Asynchronous tiles, 50-node query bounding, debouncing, and Haversine formula    |
-| **Security Rules**     | Custom Firestore Rules (`firestore.rules`)                                                    | Privilege-escalation defense, citizen/volunteer write restrictions, field guards |
-| **Testing**            | [Vitest](https://vitest.dev) + React Testing Library + Local Firestore Evaluator              | 16 test suites, 385+ unit & integration tests                                    |
-| **Target Platforms**   | Cloudflare Workers / Node.js SSR / Firebase Hosting                                           | Built with Vite & Nitro                                                          |
+> **Status:** Academic prototype developed as part of course CSE 416 (Software Project Design and Development) at the University of Information Technology and Sciences (UITS).
 
 ---
 
-## 📁 Project Architecture
+## 2. Actual Technology Stack
+
+RescueLink uses a modern, unified full-stack TypeScript architecture:
+
+| Layer | Technology | Version / Specifications | Notes |
+| :--- | :--- | :--- | :--- |
+| **Framework** | [TanStack Start](https://tanstack.com/start) | `^1.168.32` | Full-stack SSR with file-based routing and route-level guards |
+| **Routing** | [TanStack Router](https://tanstack.com/router) | `^1.170.18` | Type-safe router, search parameter validation, and navigation lifecycle |
+| **UI Library** | [React](https://react.dev) | `^19.2.0` | React 19 concurrent features |
+| **Styling** | [Tailwind CSS v4](https://tailwindcss.com) | `^4.2.1` | Mobile-first emergency design system (`#E6293A` primary, `#0F172A` navy) |
+| **Typography** | Plus Jakarta Sans & Noto Sans Bengali | Google Fonts | Crisp Latin typography paired with native Bengali rendering |
+| **Icons & Primitives** | Radix UI + Lucide React | Modern primitives | Accessible dialogs, drawers, dropdowns, and alert badges |
+| **Database** | [Cloud Firestore](https://firebase.google.com/docs/firestore) | `^13.0.0` | Real-time listeners, transactions, and role-based security rules |
+| **Authentication** | [Firebase Authentication](https://firebase.google.com/docs/auth) | `^13.0.0` | Email/password, Google OAuth, local browser session persistence |
+| **Mobile Runtime** | [Capacitor](https://capacitorjs.com) | `^8.5.3` | Cross-platform Android wrapper, native geolocation, and social login |
+| **Maps & GIS** | [Leaflet](https://leafletjs.com) + OpenStreetMap | `^1.9.4` | OpenStreetMap tiles, Nominatim reverse geocoding, Overpass API |
+| **Build & SSR** | [Vite](https://vitejs.dev) + [Nitro](https://nitro.unjs.io) | `v8.2.2` / `3.0.260603-beta` | Dual-build: Nitro Cloudflare SSR worker for web, static bundle for mobile |
+| **Testing** | [Vitest](https://vitest.dev) | `^3.2.7` | 32 test suites, 662 automated unit/integration tests |
+
+---
+
+## 3. Project Structure Overview
 
 ```
 rescuelink/
-├── firestore.rules               # Production security rules (users, sos_requests, shelters, alerts, donations)
-├── firebase.json                 # Firebase CLI configuration
-├── .firebaserc                   # Firebase project binding
-├── .env.example                  # Environment configuration template
-├── src/
-│   ├── components/               # Reusable UI primitives (Screen, Card, TopBar, InteractiveMap, etc.)
-│   │   ├── ui/                   # Radix UI styled building blocks (button, dialog, toast, form, etc.)
-│   │   └── rl.tsx                # RescueLink domain components (TopBar, BottomNav, StatusBadge, etc.)
-│   ├── context/                  # AuthContext with non-blocking initialization & session management
-│   ├── lib/
-│   │   ├── firebase/             # Firestore operations, Auth client, rules evaluator, typed interfaces
-│   │   │   ├── config.ts         # Firebase initialization with zero silent fallbacks
-│   │   │   ├── auth.ts           # Authentication workflows & registration race mitigation
-│   │   │   ├── firestore.ts      # Profile, SOS, shelter, alert, and donation operations
-│   │   │   └── types.ts          # Strongly typed domain models
-│   │   ├── map/                  # Verified Bangladesh emergency places, OSM Overpass integration
-│   │   ├── data.ts               # Shelters, alerts, donations data models & seed fallback
-│   │   ├── phone.ts              # Phone normalization (+880), validation, and dialable sanitization
-│   │   └── route-guards.ts       # Role-based route guards (citizen, volunteer, admin)
-│   └── routes/                   # TanStack file-based router pages
-│       ├── __root.tsx            # Root layout, splash screen, HTML shell
-│       ├── index.tsx             # Citizen home screen & emergency overview
-│       ├── sos.tsx               # 3-step Emergency SOS submission workflow
-│       ├── map.tsx               # Live disaster map & emergency service pins
-│       ├── shelters.index.tsx     # Shelters directory, filters, capacity tracking
-│       ├── shelters.$shelterId.tsx# Shelter detail, occupancy, bookmarking
-│       ├── alerts.tsx            # Disaster warnings & weather advisories
-│       ├── donate.tsx            # Financial & supply donation recording
-│       ├── volunteer.tsx         # Volunteer onboarding & application
-│       ├── volunteer_.sos.tsx    # Volunteer live SOS responder screen
-│       ├── profile.tsx           # Emergency contacts CRUD, activity, and account
-│       ├── permissions.tsx       # Truthful device GPS & notification permissions
-│       ├── admin.tsx             # Administrator oversight & user approvals
-│       ├── admin_.alerts.tsx     # Administrator alert creator
-│       └── admin_.donations.tsx  # Administrator donations audit
+├── android/                          # Native Android Capacitor wrapper project
+│   ├── app/                          # Android application module (build.gradle, manifest, assets)
+│   │   ├── google-services.json      # Android Firebase client configuration
+│   │   └── src/main/                 # Android source and Capacitor entrypoint
+│   └── build.gradle                  # Top-level Gradle build configuration
+├── dist/                             # Compiled mobile client distribution (for Capacitor sync)
+├── .output/                          # Nitro/Vite compiled SSR bundle (for Cloudflare / Node deployment)
+├── docs/                             # Comprehensive audit trackers and architecture specifications
+│   └── master-audit-tracker.md       # Master tracking document for all audit findings
+├── firestore.rules                   # Production Cloud Firestore security rules
+├── firebase.json                     # Firebase CLI project configuration
+├── package.json                      # Single npm package manifest (name: "rescuelink")
+├── package-lock.json                 # Authoritative npm lockfile
+├── .env.example                      # Documented environment variable template
+├── .gitignore                        # Strict secret, runtime, and archive exclusion rules
+├── vite.config.ts                    # Web & Nitro SSR build configuration
+├── vite.mobile.config.ts             # Mobile production SPA build configuration
+└── src/
+    ├── components/                   # Shared UI primitives (Screen, Card, TopBar, MiniMapPreview)
+    │   ├── ui/                       # Radix UI building blocks (dialog, toast, buttons)
+    │   └── rl.tsx                    # RescueLink design system components
+    ├── context/                      # React Context providers (AuthContext with non-blocking resolution)
+    ├── lib/
+    │   ├── firebase/                 # Firebase operations and security interfaces
+    │   │   ├── config.ts             # Strict Firebase client initialization with zero silent fallbacks
+    │   │   ├── auth.ts               # Sign-in, sign-up, password reset, and registration race mitigation
+    │   │   ├── firestore.ts          # Strongly typed queries, listeners, and mutations
+    │   │   └── types.ts              # Canonical domain interfaces (UserProfile, SosRequest, Shelter)
+    │   ├── map/                      # Leaflet setup, Overpass API query integration, Bangladesh places
+    │   │   ├── places.ts             # Verified emergency services directory and Nominatim cache
+    │   │   └── types.ts              # GeoJSON and coordinate validation interfaces
+    │   ├── data.ts                   # Shelter, donation, and alert models with local fallback seed
+    │   ├── date-utils.ts             # Robust ISO/Timestamp formatting and relative time calculations
+    │   ├── phone.ts                  # Bangladeshi phone normalization (+880), validation, and dialable URIs
+    │   ├── route-guards.ts           # Router-level auth guard (requireSignedIn)
+    │   └── push-notifications.ts     # Web push subscription and notification permissions
+    └── routes/                       # TanStack Start file-based routing
+        ├── __root.tsx                # Application shell, meta tags, and global toast container
+        ├── index.tsx                 # Citizen home dashboard and quick SOS action
+        ├── sos.tsx                   # 3-step Emergency SOS submission workflow
+        ├── map.tsx                   # Full-screen disaster map with live GPS and emergency POIs
+        ├── shelters.index.tsx        # Shelters directory with saved filter and occupancy tracking
+        ├── shelters.$shelterId.tsx   # Detailed shelter view with bookmarking and capacity breakdown
+        ├── alerts.tsx                # Disaster warnings and BMD weather advisories
+        ├── donate.tsx                # Financial contributions and relief supply ledger
+        ├── volunteer.tsx             # Volunteer application submission and relief task boards
+        ├── volunteer_.sos.tsx        # Real-time responder emergency triage queue
+        ├── profile.tsx               # Isolated emergency contacts CRUD, saved shelters, and activity
+        ├── permissions.tsx           # Transparent browser GPS and notification permissions manager
+        ├── instructions.tsx          # Step-by-step disaster preparedness guides
+        ├── support.tsx               # Emergency contacts and technical support
+        ├── admin.tsx                 # Super-administrator portal (triage, shelters, volunteers)
+        ├── admin_.citizens.tsx       # Registered citizen directory
+        ├── admin_.alerts.tsx         # Disaster alert creation and broadcast manager
+        ├── admin_.reports.tsx        # Response metrics and shelter occupancy analytics
+        └── admin_.donations.tsx      # Public relief donations ledger
 ```
 
 ---
 
-## 🚀 Environment Setup & Firebase Configuration
+## 4. Prerequisites
 
-### Prerequisites
+Before setting up RescueLink, ensure your development environment satisfies:
 
-- **Node.js**: `v20.x` or higher
-- **Package Manager**: `npm` (v10+)
-- **Firebase Account**: Access to [Firebase Console](https://console.firebase.google.com/)
+- **Node.js**: `v20.x` or higher (Active LTS recommended)
+- **Package Manager**: `npm` (`v10.x` or higher) — *RescueLink standardizes strictly on npm*
+- **Java Development Kit (JDK)**: JDK 17 (Required only for Android builds)
+- **Android Studio**: Ladybug / Meerkat or newer with Android SDK Platform 34+ (For mobile builds)
+- **Firebase CLI**: `npm install -g firebase-tools` (For deploying Firestore security rules)
+- **Git**: `v2.40` or higher
 
-### 1. Configure Environment Variables
+---
 
-Create `.env` in the root directory by copying `.env.example`:
+## 5. Installation Instructions
 
-```bash
-cp .env.example .env
-```
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/jayedrjp/RescueLink.git
+   cd RescueLink
+   ```
 
-Populate `.env` with your real Firebase web configuration keys:
+2. Install dependencies using npm:
+   ```bash
+   npm install
+   ```
+   *Note: RescueLink uses `package-lock.json` as its single authoritative lockfile. Do not run `bun install` or `yarn install`.*
 
-```env
-# RescueLink Firebase Web Configuration
-VITE_FIREBASE_API_KEY=AIzaSy...
-VITE_FIREBASE_AUTH_DOMAIN=rescue-linkbd.firebaseapp.com
-VITE_FIREBASE_PROJECT_ID=rescue-linkbd
-VITE_FIREBASE_STORAGE_BUCKET=rescue-linkbd.firebasestorage.app
-VITE_FIREBASE_MESSAGING_SENDER_ID=900119595279
-VITE_FIREBASE_APP_ID=1:900119595279:web:531abf7f2859721b46167a
-VITE_FIREBASE_MEASUREMENT_ID=
+---
 
-# Optional: Admin sign-in shortcut email (grant role: 'admin' in Firestore users/{uid})
-VITE_ADMIN_EMAIL=admin@rescuelink.org
-```
+## 6. Environment Configuration
+
+1. Create a `.env` file in the project root by copying the template:
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Open `.env` and fill in your Firebase Web App credentials obtained from the Firebase Console:
+   ```env
+   # Required Firebase Client Configuration
+   VITE_FIREBASE_API_KEY=AIzaSy...
+   VITE_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+   VITE_FIREBASE_PROJECT_ID=your-project
+   VITE_FIREBASE_APP_ID=1:123456789:web:abcdef
+
+   # Optional Firebase Web App Fields
+   VITE_FIREBASE_STORAGE_BUCKET=your-project.firebasestorage.app
+   VITE_FIREBASE_MESSAGING_SENDER_ID=123456789
+   VITE_FIREBASE_MEASUREMENT_ID=G-XXXXXXXXXX
+
+   # Optional Security & Integration Features
+   VITE_FIREBASE_APPCHECK_KEY=
+   VITE_VAPID_PUBLIC_KEY=
+   VITE_GOOGLE_WEB_CLIENT_ID=
+   VITE_ADMIN_EMAIL=admin@rescuelink.org
+   ```
 
 > [!IMPORTANT]
-> RescueLink implements strict configuration verification in `src/lib/firebase/config.ts`. If required variables are missing or contain placeholder values, the application displays a clear "Firebase Configuration Required" banner and refuses to connect to any silent fallback.
+> All `VITE_*` variables are bundled into client-side JavaScript. **Never place private server keys, service account JSON files, or database secrets in `.env`.**
 
 ---
 
-## 🔒 Firebase Deployment Instructions
+## 7. Development Server
 
-### 1. Setup Firebase Project & Authentication
-
-1. Go to [Firebase Console](https://console.firebase.google.com/) and create a project (e.g. `rescue-linkbd`).
-2. Navigate to **Build → Authentication**:
-   - Enable **Email/Password** provider.
-   - (Optional) Enable **Google** provider.
-3. Navigate to **Build → Firestore Database**:
-   - Click **Create Database**.
-   - Choose production mode and select your closest region (e.g., `asia-south1`).
-
-### 2. Deploy Firestore Security Rules
-
-Deploy the hardened security rules that enforce role-based access control and prevent privilege escalation:
-
+Start the local development server with Vite:
 ```bash
-# Login to Firebase CLI
+npm run dev
+```
+
+The application will be accessible at:
+```
+http://localhost:3000
+```
+
+Hot Module Replacement (HMR) and TanStack file routing are active automatically.
+
+---
+
+## 8. Web Production Build
+
+Compile the production-ready full-stack application:
+```bash
+npm run build
+```
+
+This compiles:
+- The client assets into `.output/public/`
+- The server Nitro bundle into `.output/server/`
+
+To preview the production build locally:
+```bash
+npm run preview
+```
+
+---
+
+## 9. Capacitor Android Build & Synchronization
+
+RescueLink is fully configured with Capacitor for native Android deployment:
+
+1. **Build mobile web assets:**
+   ```bash
+   npm run build:mobile
+   ```
+   *This compiles the SPA distribution bundle into `dist/`.*
+
+2. **Sync web assets to the Android native project:**
+   ```bash
+   npx cap sync android
+   ```
+
+3. **Open the native project in Android Studio:**
+   ```bash
+   npx cap open android
+   ```
+
+4. **Build APK directly from terminal (Release):**
+   ```bash
+   cd android
+   ./gradlew assembleRelease
+   ```
+   *The signed release APK will be generated at `android/app/build/outputs/apk/release/app-release.apk`.*
+
+---
+
+## 10. Firebase Project Setup
+
+1. Open [Firebase Console](https://console.firebase.google.com/) and create a project (e.g., `rescue-linkbd`).
+2. **Enable Authentication:**
+   - Go to **Build → Authentication → Sign-in method**.
+   - Enable **Email/Password**.
+   - (Optional) Enable **Google** sign-in provider.
+3. **Provision Cloud Firestore:**
+   - Go to **Build → Firestore Database → Create database**.
+   - Choose **Production mode**.
+   - Select the closest regional location (e.g., `asia-south1` Mumbai or `asia-east1`).
+4. **Register Web App:**
+   - Go to **Project Settings → General → Your apps → Add app (Web)**.
+   - Copy the configuration snippet values into your local `.env`.
+
+---
+
+## 11. Firestore Rules & Security Deployment
+
+RescueLink enforces zero-trust, role-based access control inside `firestore.rules`:
+- Citizens can only edit their own profile and create legitimate SOS requests.
+- Administrators can never be created or demoted from client mutations.
+- Volunteers are only trusted when `role == 'volunteer' && volunteerStatus == 'approved'`.
+
+### Deploy Security Rules:
+```bash
+# Login to Firebase
 npx firebase login
 
-# Target your project
-npx firebase use rescue-linkbd
+# Target your project ID
+npx firebase use your-project-id
 
-# Deploy rules
+# Deploy rules only
 npx firebase deploy --only firestore:rules
 ```
 
-_Alternatively, copy the complete contents of `firestore.rules` and paste them into Firebase Console → Firestore Database → Rules, then click **Publish**._
-
-### 3. Provision the Initial Administrator Safely
-
-Because client applications are strictly prohibited from granting the `admin` role:
-
-1. Register an account through the RescueLink sign-up page (`/register`) or create the user directly in **Firebase Console → Authentication → Users → Add user**.
-2. Open **Firebase Console → Firestore Database → `users` collection**.
-3. Locate the user document corresponding to your administrator's UID (`users/{uid}`).
-4. Change the `role` field value from `"user"` to `"admin"`.
-5. _(Optional)_ Set `VITE_ADMIN_EMAIL` in your `.env` to allow logging in by typing `admin` in the email field.
-6. Sign out and sign back in to access the `/admin` portal.
-
-### 4. Data Initialization & Safe Migration
-
-- **Collections:** The application manages five primary Firestore collections:
-  - `users`: User profiles with roles (`user`, `volunteer`, `admin`).
-  - `sos_requests`: Citizen SOS broadcasts with status transitions (`active`, `assigned`, `resolved`, `cancelled`).
-  - `shelters`: Emergency shelter records with real-time capacity and occupancy tracking.
-  - `alerts`: Active weather advisories and flood warnings.
-  - `donations`: Relief fund and supply contribution records.
-- **Automatic Fallback:** When a collection is empty, the application falls back safely to verified in-memory Bangladesh emergency shelters, warnings, and relief posts. Once documents are added by an administrator, the live Firestore collection immediately takes precedence.
-
----
-
-## 🧪 Testing & Verification
-
-Run all available automated verification suites:
-
+### Run Local Rules Verification Suite:
 ```bash
-# Run Vitest test suites (16 files, 385 tests)
-npm test
-
-# Type-check TypeScript codebase without emitting
-npx tsc --noEmit
-
-# Run ESLint linter
-npm run lint
-
-# Compile production bundle with Nitro and Vite
-npm run build
-
-# (Optional) Run security rules against local Firestore emulator
+# Runs test suite against local Firestore emulator
 npm run test:rules
 ```
 
 ---
 
-## 📦 Packaging & Distribution Guardrails
+## 12. Map Implementation & Data Sources
 
-To protect sensitive credentials and prevent bloated builds, packaging distributions must strictly exclude sensitive and generated directories:
+RescueLink uses an open, cost-effective GIS architecture:
+- **Leaflet 1.9.4:** Lightweight interactive map rendering.
+- **OpenStreetMap Tiles:** Standard cartographic tiles loaded asynchronously with offline tile caching.
+- **Overpass API Integration:** Queries live emergency facilities (hospitals, fire stations, police stations) with bounding box limits (max 50 nodes) and client-side debouncing to prevent rate limiting.
+- **Nominatim Reverse Geocoding:** Converts GPS coordinates to human-readable landmark addresses with local cache fallback.
+- **Haversine Distance:** All distance calculations (`distanceKm`) are computed dynamically at runtime based on the citizen's current coordinates.
+
+---
+
+## 13. Cloudflare Deployment Configuration
+
+RescueLink's SSR engine is pre-configured for Cloudflare via Nitro's `cloudflare-module` preset:
+
+1. **Configuration:** Defined in `vite.config.ts` using `@lovable.dev/vite-tanstack-config`.
+2. **Output:** Running `npm run build` generates a Cloudflare Worker bundle in `.output/server/index.mjs` and static assets in `.output/public/`.
+3. **Deployment via Wrangler:**
+   ```bash
+   # Login to Cloudflare
+   npx wrangler login
+
+   # Deploy to Cloudflare Workers / Pages
+   npx wrangler deploy
+   ```
+
+---
+
+## 14. Known Limitations & External Configuration
+
+- **Background Web Push (VAPID):** In-app toasts and browser notifications function immediately. To enable background push notifications when the browser tab is closed, you must generate a VAPID key (`npx web-push generate-vapid-keys`) and provide `VITE_VAPID_PUBLIC_KEY`.
+- **Firebase App Check:** App Check is optional in local development. For production deployments with strict bot protection, register your domain in Firebase App Check with reCAPTCHA v3 and set `VITE_FIREBASE_APPCHECK_KEY`.
+- **Native Android Social Login:** Google sign-in on Android requires configuring the SHA-1 fingerprint of your signing keystore in Google Cloud Console / Firebase Console.
+
+---
+
+## 15. Important Setup Notes for Developers
+
+- **Software-Only Application:** RescueLink is strictly a web and mobile software platform. It does not require or depend on wearable hardware, smart bracelets, or Bluetooth peripherals.
+- **Super-Administrator Role Provisioning:** For security reasons, the `admin` role **cannot** be granted through the client app. To make an account an administrator:
+  1. Register an account through `/register` or create the user in **Firebase Console → Authentication**.
+  2. Open **Firebase Console → Firestore Database → `users` collection**.
+  3. Find the user's document (`users/{uid}`) and change `"role"` from `"user"` to `"admin"`.
+  4. (Optional) Set `VITE_ADMIN_EMAIL=your-admin@example.com` in `.env` to enable typing `admin` in the login username field.
+
+---
+
+## 🧪 Automated Testing & Verification
+
+Run the full testing and quality assurance pipeline:
 
 ```bash
-# Create a clean release archive excluding secrets and build outputs
-tar -a -c -f rescuelink_completed.zip --exclude="node_modules" --exclude=".output" --exclude=".wrangler" --exclude=".tanstack" --exclude=".env" *
+# Run complete Vitest suite (32 test files, 662 tests)
+npm test
+
+# Run TypeScript strict type-check
+npx tsc --noEmit
+
+# Run ESLint validation
+npm run lint
+
+# Compile Web production build
+npm run build
+
+# Compile Mobile production build
+npm run build:mobile
 ```
 
 ---
 
-## 👥 Course & Team Attribution
+## 👥 Course & Attribution
 
 - **Course:** CSE 416 — Software Project Design and Development
 - **Institution:** University of Information Technology and Sciences (UITS)
@@ -219,4 +359,4 @@ tar -a -c -f rescuelink_completed.zip --exclude="node_modules" --exclude=".outpu
 
 ## 📄 License
 
-Academic prototype — developed for university coursework and educational disaster relief research.
+Academic prototype developed for educational research and disaster response optimization in Bangladesh.

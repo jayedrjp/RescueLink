@@ -9,6 +9,8 @@ import {
   Phone,
   Pill as PillIcon,
   Shield,
+  Info,
+  ChevronRight,
 } from "lucide-react";
 
 import { Card, Screen, TopBar } from "@/components/rl";
@@ -99,6 +101,26 @@ function ServicesScreen() {
             </button>
           );
         })}
+      </div>
+
+      <div className="px-4 pb-2">
+        <Link
+          to="/instructions"
+          className="press flex items-center justify-between rounded-2xl border border-border/70 bg-card p-3 shadow-[var(--shadow-soft)]"
+        >
+          <div className="flex items-center gap-3">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-info/15 text-info">
+              <Info className="h-4 w-4" />
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-xs font-bold text-navy">Emergency System Instructions</p>
+              <p className="truncate text-[11px] text-muted-foreground">
+                Step-by-step crisis procedures & guides
+              </p>
+            </div>
+          </div>
+          <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+        </Link>
       </div>
 
       <div className="stagger-children space-y-3 px-4">

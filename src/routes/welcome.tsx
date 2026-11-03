@@ -94,6 +94,14 @@ function WelcomeScreen() {
             >
               Create Account
             </Link>
+
+            {/* Guest Emergency Services & Shelters Link */}
+            <Link
+              to="/services"
+              className="press mt-1 py-1.5 text-center text-[13.5px] font-semibold text-[#05295B]/80 hover:text-[#05295B] hover:underline"
+            >
+              Emergency Services & Shelters (Guest) →
+            </Link>
           </div>
         </div>
       </div>

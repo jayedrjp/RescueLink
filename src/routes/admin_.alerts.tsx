@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Bell, Plus, X, Radio, ShieldAlert, ArrowLeft, Search } from "lucide-react";
 import { toast } from "sonner";
 
@@ -59,18 +59,20 @@ function AdminAlertsScreen() {
     return () => unsub();
   }, []);
 
-  // Open modal automatically if query param ?create=true was passed
+  // ADM-8: Open modal automatically if query param ?create=true was passed, and clear it immediately
+  const createHandledRef = useRef(false);
   useEffect(() => {
-    if (search.create) {
+    if (search.create && !createHandledRef.current) {
+      createHandledRef.current = true;
       setIsAddingAlert(true);
+      // Clean up search param immediately so subsequent reload/back does not re-trigger dialog
+      navigate({ to: "/admin/alerts", search: {}, replace: true });
     }
-  }, [search.create]);
+  }, [search.create, navigate]);
 
   const closeModal = () => {
     setIsAddingAlert(false);
-    if (search.create) {
-      navigate({ to: "/admin/alerts", search: {}, replace: true });
-    }
+    navigate({ to: "/admin/alerts", search: {}, replace: true });
   };
 
   const handleCreateAlert = async (e: React.FormEvent) => {
@@ -295,6 +297,7 @@ function AdminAlertsScreen() {
                   : "There are currently no active disaster broadcasts."}
               </p>
               <button
+                type="button"
                 onClick={() => setIsAddingAlert(true)}
                 className="press mt-3 inline-flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-xs font-bold text-white shadow-xs"
               >

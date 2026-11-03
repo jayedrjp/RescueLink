@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { BackButton } from "@/components/BackButton";
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
@@ -110,6 +110,7 @@ function shelterToEmergencyPlace(s: Shelter): EmergencyPlace | null {
 }
 
 function MapScreen() {
+  const navigate = useNavigate();
   const mapHandleRef = useRef<InteractiveMapHandle | null>(null);
   const search = Route.useSearch();
 
@@ -219,9 +220,7 @@ function MapScreen() {
   // Dynamic OSM emergency places (MAP-4 & MAP-5: deduplicated & bounded)
   const [osmPlaces, setOsmPlaces] = useState<EmergencyPlace[]>([]);
   const [isLoadingOsm, setIsLoadingOsm] = useState(false);
-  const [selectedPlaceId, setSelectedPlaceId] = useState<string>(
-    requestedPlace?.id ?? coreVerifiedPlaces[0]?.id ?? VERIFIED_EMERGENCY_PLACES[0]!.id,
-  );
+  const [selectedPlaceId, setSelectedPlaceId] = useState<string>(requestedPlace?.id ?? "");
 
   // Say plainly when a Directions link could not be resolved to a place with coordinates.
   const placeWithoutCoordinates = useMemo(() => {
@@ -507,15 +506,11 @@ function MapScreen() {
 
   // Synchronize selection when filteredPlaces changes (MAP-6: never leave dangling selection)
   useEffect(() => {
-    if (filteredPlaces.length === 0) {
-      if (selectedPlaceId) {
-        setSelectedPlaceId("");
-      }
-      return;
-    }
+    if (!selectedPlaceId) return;
+
     const stillVisible = filteredPlaces.some((p) => p.id === selectedPlaceId);
     if (!stillVisible) {
-      setSelectedPlaceId(filteredPlaces[0]!.id);
+      setSelectedPlaceId("");
     }
   }, [filteredPlaces, selectedPlaceId]);
 
@@ -712,7 +707,16 @@ function MapScreen() {
                   <button
                     type="button"
                     aria-label="Dismiss details"
-                    onClick={() => setSelectedPlaceId("")}
+                    onClick={() => {
+                      setSelectedPlaceId("");
+                      if (search.place) {
+                        navigate({
+                          to: "/map",
+                          search: search.q ? { q: search.q } : {},
+                          replace: true,
+                        });
+                      }
+                    }}
                     className="press grid h-7 w-7 place-items-center rounded-full bg-muted text-muted-foreground transition hover:bg-muted/80 hover:text-navy"
                   >
                     <X className="h-3.5 w-3.5" />

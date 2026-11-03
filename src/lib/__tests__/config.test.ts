@@ -70,6 +70,24 @@ describe("SEC-6: Firebase config has no silent fallbacks", () => {
     expect(cfg.getMissingFirebaseConfig()).toHaveLength(4);
   });
 
+  it("detects generic template placeholders such as <your_...> and literal undefined/null strings", async () => {
+    const cfg = await loadConfig({
+      VITE_FIREBASE_API_KEY: "<your_api_key>",
+      VITE_FIREBASE_AUTH_DOMAIN: "undefined",
+      VITE_FIREBASE_PROJECT_ID: "null",
+      VITE_FIREBASE_APP_ID: "AIzaSy...",
+    });
+    expect(cfg.isFirebaseConfigured()).toBe(false);
+    expect(cfg.getMissingFirebaseConfig().sort()).toEqual(
+      [
+        "VITE_FIREBASE_API_KEY",
+        "VITE_FIREBASE_APP_ID",
+        "VITE_FIREBASE_AUTH_DOMAIN",
+        "VITE_FIREBASE_PROJECT_ID",
+      ].sort(),
+    );
+  });
+
   it("reports a single missing variable by name only (never its value)", async () => {
     const { VITE_FIREBASE_APP_ID: _omit, ...partial } = REAL;
     void _omit;

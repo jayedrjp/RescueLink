@@ -11,17 +11,31 @@ node_modules
 dist
 dist-ssr
 .output
+.output/
 .vinxi
+.vinxi/
+.tanstack
+.tanstack/
 .tanstack/**
 .nitro
+.nitro/
 *.local
 .env
 .env.*
 !.env.example
 
 # Wrangler / Cloudflare
+.wrangler
 .wrangler/
 .dev.vars
+
+# Packaging archives & distribution zips
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.rar
+*.7z
 
 # Editor directories and files
 .vscode/*

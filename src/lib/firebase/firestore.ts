@@ -305,9 +305,20 @@ export async function submitVolunteerApplication(
 }
 
 /**
+ * ADM-7: Single authoritative definition of an approved volunteer.
+ * Strictly requires BOTH role === "volunteer" AND volunteerStatus === "approved".
+ * Users with volunteerStatus === "none", "pending", or "rejected" are never approved volunteers.
+ */
+export function isApprovedVolunteer(
+  user: { role?: string; volunteerStatus?: string } | null | undefined,
+): boolean {
+  return !!user && user.role === "volunteer" && user.volunteerStatus === "approved";
+}
+
+/**
  * Updates volunteer approval status (intended for trusted Admin / privileged process).
- * ADM-1: Stores rejection reason in volunteerApplication.notes.
- * ADM-2: Prevents role corruption / demotion of administrators.
+ * ADM-1: Stores and validates rejection reason in volunteerApplication.notes.
+ * ADM-2: Prevents role corruption / demotion of administrators and separates role from status.
  */
 export async function setVolunteerStatus(
   targetUid: string,
@@ -316,6 +327,11 @@ export async function setVolunteerStatus(
 ): Promise<void> {
   if (!db) throw new Error("Firestore is not initialized.");
 
+  const validStatuses: VolunteerStatus[] = ["none", "pending", "approved", "rejected"];
+  if (!validStatuses.includes(status)) {
+    throw new Error(`Invalid volunteer status: "${status}"`);
+  }
+
   const userRef = doc(db, "users", targetUid);
   const snap = await getDoc(userRef);
   if (!snap.exists()) {
@@ -323,20 +339,28 @@ export async function setVolunteerStatus(
   }
   const cur = snap.data() as UserProfile;
   if (cur.role === "admin") {
-    const err = new Error("Cannot alter volunteer status of an administrator.");
+    const err = new Error("Cannot alter volunteer status or demote an administrator.");
     (err as unknown as { code: string }).code = "permission-denied";
     throw err;
   }
 
   const now = new Date().toISOString();
-  const role = status === "approved" ? "volunteer" : "user";
+  // ADM-2: Only an approved status promotes to "volunteer"; any other status retains or reverts to "user"
+  const role: UserRole = status === "approved" ? "volunteer" : "user";
   const updateData: Record<string, unknown> = {
     volunteerStatus: status,
     role,
     updatedAt: now,
   };
 
-  if (status === "rejected" && rejectionReason) {
+  // ADM-1: Persist validated rejection reason in volunteerApplication.notes (survives refreshes & reads)
+  if (status === "rejected") {
+    const trimmedReason = (rejectionReason ?? "").trim();
+    const finalReason =
+      trimmedReason.length > 0
+        ? trimmedReason.slice(0, 1000)
+        : "Application reviewed and not approved at this time. You may re-apply with updated details.";
+
     const existingApp = cur.volunteerApplication || {
       appliedAt: now,
       skills: ["General Relief"],
@@ -345,7 +369,7 @@ export async function setVolunteerStatus(
     };
     updateData["volunteerApplication"] = {
       ...existingApp,
-      notes: rejectionReason.slice(0, 1000),
+      notes: finalReason,
     };
   }
 
@@ -788,10 +812,10 @@ export async function getUserSosRequests(userId: string): Promise<SosRequest[]> 
 
 /**
  * Fetches all users from Firestore (Admins only).
- * ADM-3: Does not swallow permission/network errors so UI catch blocks and toasts fire.
+ * ADM-3: Does not swallow permission/network/db errors so UI catch blocks and error states fire.
  */
 export async function getAllUsers(): Promise<UserProfile[]> {
-  if (!db) return [];
+  if (!db) throw new Error("Firestore is not initialized.");
   const colRef = collection(db, "users");
   const snapshot = await getDocs(colRef);
   const list: UserProfile[] = [];

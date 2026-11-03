@@ -1,5 +1,5 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState, useEffect, useMemo } from "react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Users,
   ShieldAlert,
@@ -12,6 +12,7 @@ import {
   RefreshCw,
   User,
   Siren,
+  AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -19,7 +20,11 @@ import { Screen, Card } from "@/components/rl";
 import { useAuth } from "@/context/AuthContext";
 import { BackButton } from "@/components/BackButton";
 import { requireSignedIn } from "@/lib/route-guards";
-import { getAllUsers, subscribeToAllSosRequests } from "@/lib/firebase/firestore";
+import {
+  getAllUsers,
+  subscribeToAllSosRequests,
+  isApprovedVolunteer,
+} from "@/lib/firebase/firestore";
 import type { UserProfile, SosRequest } from "@/lib/firebase/types";
 import { toDialablePhone } from "@/lib/phone";
 
@@ -39,33 +44,36 @@ export const Route = createFileRoute("/admin_/citizens")({
 });
 
 function AdminCitizensScreen() {
-  const navigate = useNavigate();
-  const { isAuthenticated, isAdmin, loading: authLoading, profile } = useAuth();
+  const { isAdmin, loading: authLoading, profile } = useAuth();
 
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [sosRequests, setSosRequests] = useState<SosRequest[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
+  const [usersError, setUsersError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<"all" | "citizens" | "volunteers">("all");
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     setLoadingUsers(true);
+    setUsersError(null);
     try {
       const all = await getAllUsers();
       setUsers(all);
-    } catch (err) {
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Error loading users directory";
       console.error("Error loading citizens from Firestore:", err);
-      toast.error("Could not load users directory");
+      setUsersError(msg);
+      toast.error("Could not load users directory", { description: msg });
     } finally {
       setLoadingUsers(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (isAdmin) {
       fetchUsers();
     }
-  }, [isAdmin]);
+  }, [isAdmin, fetchUsers]);
 
   // Subscribe to live SOS requests to calculate each citizen's SOS activity count
   useEffect(() => {
@@ -76,22 +84,12 @@ function AdminCitizensScreen() {
     return () => unsubscribe();
   }, [isAdmin]);
 
-  // Auth protection guard
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      navigate({ to: "/login", replace: true });
-    }
-  }, [authLoading, isAuthenticated, navigate]);
-
   const registeredCitizens = useMemo(() => users.filter((u) => u.role !== "admin"), [users]);
 
   const filteredCitizens = useMemo(() => {
     return registeredCitizens.filter((u) => {
       if (roleFilter === "citizens" && u.role !== "user") return false;
-      if (
-        roleFilter === "volunteers" &&
-        !(u.role === "volunteer" && u.volunteerStatus === "approved")
-      ) {
+      if (roleFilter === "volunteers" && !isApprovedVolunteer(u)) {
         return false;
       }
 
@@ -234,13 +232,7 @@ function AdminCitizensScreen() {
                   : "bg-muted text-muted-foreground hover:text-navy"
               }`}
             >
-              Relief Volunteers (
-              {
-                registeredCitizens.filter(
-                  (u) => u.role === "volunteer" && u.volunteerStatus === "approved",
-                ).length
-              }
-              )
+              Relief Volunteers ({registeredCitizens.filter(isApprovedVolunteer).length})
             </button>
           </div>
         </div>
@@ -257,6 +249,24 @@ function AdminCitizensScreen() {
               <div className="mx-auto h-7 w-7 animate-spin rounded-full border-2 border-navy border-t-transparent" />
               <p className="text-xs text-muted-foreground">Loading citizen records...</p>
             </div>
+          ) : usersError ? (
+            <Card className="p-8 text-center space-y-3 border-destructive/30 bg-destructive/5">
+              <span className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-destructive/15 text-destructive">
+                <AlertTriangle className="h-6 w-6" />
+              </span>
+              <div>
+                <p className="text-sm font-bold text-navy">Error Loading Directory</p>
+                <p className="mt-1 text-xs text-muted-foreground max-w-xs mx-auto">{usersError}</p>
+              </div>
+              <button
+                type="button"
+                onClick={fetchUsers}
+                className="press inline-flex items-center gap-1.5 rounded-xl bg-navy px-4 py-2 text-xs font-bold text-white shadow-xs"
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+                <span>Retry Fetch</span>
+              </button>
+            </Card>
           ) : filteredCitizens.length === 0 ? (
             <Card className="p-8 text-center space-y-2">
               <span className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-muted text-muted-foreground">
@@ -270,6 +280,7 @@ function AdminCitizensScreen() {
           ) : (
             filteredCitizens.map((user) => {
               const citizenSos = sosRequests.filter((s) => s.userId === user.uid);
+              const isVolunteer = isApprovedVolunteer(user);
               return (
                 <Card key={user.uid} className="p-4 space-y-2.5 shadow-[var(--shadow-card)]">
                   <div className="flex items-start justify-between gap-3">
@@ -282,14 +293,12 @@ function AdminCitizensScreen() {
                           <p className="text-sm font-bold text-navy truncate">{user.displayName}</p>
                           <span
                             className={`rounded-full px-2 py-0.2 text-[9.5px] font-extrabold uppercase ${
-                              user.role === "volunteer" && user.volunteerStatus === "approved"
+                              isVolunteer
                                 ? "bg-safe/15 text-safe"
                                 : "bg-muted text-muted-foreground"
                             }`}
                           >
-                            {user.role === "volunteer" && user.volunteerStatus === "approved"
-                              ? "Volunteer"
-                              : "Citizen"}
+                            {isVolunteer ? "Volunteer" : "Citizen"}
                           </span>
                         </div>
                         <p className="text-xs text-muted-foreground truncate">{user.email}</p>

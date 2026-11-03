@@ -32,10 +32,20 @@ const REQUIRED_CONFIG_VARS = [
   ["VITE_FIREBASE_APP_ID", "appId"],
 ] as const;
 
-/** True for empty values and for the placeholders shipped in .env.example. */
+/** True for empty values and for placeholder text shipped in .env.example or template files. */
 const isMissingValue = (value: string | undefined): boolean => {
   const v = (value ?? "").trim();
-  return v === "" || v.startsWith("your_") || v.includes("your_project_id");
+  return (
+    v === "" ||
+    v === "undefined" ||
+    v === "null" ||
+    v.startsWith("your_") ||
+    v.startsWith("<your_") ||
+    v.includes("your_project_id") ||
+    v.includes("your_firebase_") ||
+    v.includes("your_measurement_id") ||
+    v === "AIzaSy..."
+  );
 };
 
 /**

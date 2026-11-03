@@ -17,5 +17,8 @@ export function shouldShowSplash(opts: {
   if (opts.isServer || (typeof window === "undefined" && opts.isServer === undefined)) {
     return false;
   }
-  return opts.initializing || (opts.loading && !opts.onAuthFormRoute);
+  if (opts.onAuthFormRoute) {
+    return false;
+  }
+  return opts.initializing || opts.loading;
 }

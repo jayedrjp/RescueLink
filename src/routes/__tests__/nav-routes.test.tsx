@@ -24,7 +24,11 @@ const h = vi.hoisted(() => ({
     applyProfilePatch: () => {},
     logout: async () => {},
   },
-  mapProps: null as null | { center: { lat: number; lng: number }; selectedPlaceId?: string },
+  mapProps: null as null | {
+    center: { lat: number; lng: number };
+    selectedPlaceId?: string;
+    onSelectPlace?: (place: unknown) => void;
+  },
 }));
 
 vi.mock("@/context/AuthContext", () => ({
@@ -442,6 +446,113 @@ describe("Map route: back button, requested place, honest fallbacks", () => {
     expect((route.options.validateSearch({ q: "z".repeat(500) }) as { q: string }).q).toHaveLength(
       120,
     );
+  });
+
+  it("opening /map without a place parameter displays no bottom popup and does not select Dhaka Medical College Hospital", async () => {
+    asUser();
+    const { router } = createTestRouter(["/map"]);
+    render(<AppUnderTest router={router} />);
+    await screen.findByTestId("interactive-map");
+    expect(h.mapProps?.selectedPlaceId).toBe("");
+    expect(screen.queryByRole("button", { name: /dismiss details/i })).toBeNull();
+    expect(screen.queryByText(/Dhaka Medical College Hospital/i)).toBeNull();
+  });
+
+  it("selecting a marker displays its details popup, and clicking X immediately closes it and keeps it closed", async () => {
+    asUser();
+    const user = userEvent.setup();
+    const { router } = createTestRouter(["/map"]);
+    render(<AppUnderTest router={router} />);
+    await screen.findByTestId("interactive-map");
+    expect(h.mapProps?.selectedPlaceId).toBe("");
+
+    // Simulate clicking a marker
+    act(() => {
+      h.mapProps?.onSelectPlace?.(mirpur);
+    });
+
+    expect(await screen.findByText(mirpur.name)).toBeTruthy();
+    const closeBtn = screen.getByRole("button", { name: /dismiss details/i });
+    expect(closeBtn).toBeTruthy();
+
+    // Click close (X)
+    await user.click(closeBtn);
+
+    // Popup is dismissed and does NOT re-appear
+    expect(screen.queryByRole("button", { name: /dismiss details/i })).toBeNull();
+    expect(screen.queryByText(mirpur.name)).toBeNull();
+    expect(h.mapProps?.selectedPlaceId).toBe("");
+  });
+
+  it("clicking X on a requested place popup removes the place search param from the URL", async () => {
+    asUser();
+    const user = userEvent.setup();
+    const { router } = createTestRouter([`/map?place=${mirpur.id}&q=mirpur`]);
+    render(<AppUnderTest router={router} />);
+    await screen.findByTestId("interactive-map");
+
+    expect(await screen.findByText(mirpur.name)).toBeTruthy();
+    const closeBtn = await screen.findByRole("button", { name: /dismiss details/i });
+    await user.click(closeBtn);
+
+    await waitFor(() => {
+      expect(router.state.location.search).toEqual({ q: "mirpur" });
+    });
+    expect(screen.queryByRole("button", { name: /dismiss details/i })).toBeNull();
+  });
+
+  it("navigating away from /map and returning does not restore the previous selection", async () => {
+    asUser();
+    const user = userEvent.setup();
+    const { router } = createTestRouter(["/map"]);
+    render(<AppUnderTest router={router} />);
+    await screen.findByTestId("interactive-map");
+
+    // Select a marker
+    act(() => {
+      h.mapProps?.onSelectPlace?.(mirpur);
+    });
+    expect(await screen.findByText(mirpur.name)).toBeTruthy();
+
+    // Dismiss it
+    await user.click(screen.getByRole("button", { name: /dismiss details/i }));
+    expect(screen.queryByText(mirpur.name)).toBeNull();
+
+    // Navigate to /profile and then back to /map
+    await act(async () => {
+      await router.navigate({ to: "/profile" });
+    });
+    await waitFor(() => expect(pathOf(router)).toBe("/profile"));
+
+    await act(async () => {
+      await router.navigate({ to: "/map" });
+    });
+    await screen.findByTestId("interactive-map");
+    expect(h.mapProps?.selectedPlaceId).toBe("");
+    expect(screen.queryByRole("button", { name: /dismiss details/i })).toBeNull();
+  });
+
+  it("filtering places when a place is selected clears the selection without forced auto-selection", async () => {
+    asUser();
+    const { router } = createTestRouter(["/map"]);
+    render(<AppUnderTest router={router} />);
+    await screen.findByTestId("interactive-map");
+
+    act(() => {
+      h.mapProps?.onSelectPlace?.(mirpur);
+    });
+    expect(await screen.findByText(mirpur.name)).toBeTruthy();
+
+    // Type a search query that excludes mirpur
+    const searchInput = screen.getByPlaceholderText(/search emergency services/i);
+    await userEvent.setup().type(searchInput, "NonExistentFacility123");
+
+    // Selection should be cleared, no fallback place forced
+    await waitFor(() => {
+      expect(screen.queryByText(mirpur.name)).toBeNull();
+      expect(screen.queryByText(/Dhaka Medical College Hospital/i)).toBeNull();
+      expect(h.mapProps?.selectedPlaceId).toBe("");
+    });
   });
 });
 

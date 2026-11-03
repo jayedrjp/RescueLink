@@ -507,7 +507,7 @@ describe("Phase 6: Map & Emergency Services (MAP-1 through MAP-7)", () => {
       },
     ];
 
-    it("resets selection or syncs to first visible match when active filter changes", () => {
+    it("clears selection without forced auto-selection when active filter excludes the selected place", () => {
       let activeCategory: string = "shelters";
       let selectedPlaceId: string | null = "shelter-1";
 
@@ -519,13 +519,15 @@ describe("Phase 6: Map & Emergency Services (MAP-1 through MAP-7)", () => {
       activeCategory = "police";
       filtered = testPlaces.filter((p) => p.category === activeCategory);
 
-      // Selection synchronization check
-      const currentSelectedStillVisible = filtered.some((p) => p.id === selectedPlaceId);
-      if (!currentSelectedStillVisible) {
-        selectedPlaceId = filtered[0]?.id ?? null;
+      // Selection synchronization check: if selected place is no longer visible, clear selection
+      if (selectedPlaceId) {
+        const currentSelectedStillVisible = filtered.some((p) => p.id === selectedPlaceId);
+        if (!currentSelectedStillVisible) {
+          selectedPlaceId = null;
+        }
       }
 
-      expect(selectedPlaceId).toBe("police-1");
+      expect(selectedPlaceId).toBeNull();
     });
 
     it("clears selection when search query produces 0 results", () => {

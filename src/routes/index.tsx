@@ -14,6 +14,8 @@ import {
   HeartHandshake,
   HandCoins,
   ShieldCheck,
+  BookOpen,
+  LifeBuoy,
 } from "lucide-react";
 
 import {
@@ -500,6 +502,32 @@ function HomeScreen() {
             <HandCoins className="h-6 w-6 text-info" />
             <p className="mt-3 text-[14px] font-bold text-navy">Donate</p>
             <p className="text-[11.5px] text-muted-foreground">Support shelters</p>
+          </Link>
+        </div>
+      </section>
+
+      <section className="px-4 pt-7">
+        <SectionHeader title="Preparedness & Support" />
+        <div className="grid grid-cols-2 gap-3">
+          <Link
+            to="/instructions"
+            className="press rounded-3xl border border-border/70 bg-card p-4 shadow-[var(--shadow-soft)]"
+          >
+            <span className="grid h-10 w-10 place-items-center rounded-2xl bg-warn/15 text-warn-foreground">
+              <BookOpen className="h-5 w-5" />
+            </span>
+            <p className="mt-3 text-[14px] font-bold text-navy">Safety Guides</p>
+            <p className="text-[11.5px] text-muted-foreground">Emergency procedures</p>
+          </Link>
+          <Link
+            to="/support"
+            className="press rounded-3xl border border-border/70 bg-card p-4 shadow-[var(--shadow-soft)]"
+          >
+            <span className="grid h-10 w-10 place-items-center rounded-2xl bg-navy/10 text-navy">
+              <LifeBuoy className="h-5 w-5" />
+            </span>
+            <p className="mt-3 text-[14px] font-bold text-navy">Help & Support</p>
+            <p className="text-[11.5px] text-muted-foreground">24/7 disaster contacts</p>
           </Link>
         </div>
       </section>

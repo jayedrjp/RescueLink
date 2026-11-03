@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useEffect, useMemo } from "react";
 import {
   HandCoins,
@@ -33,8 +33,7 @@ export const Route = createFileRoute("/admin_/donations")({
 });
 
 function AdminDonationsScreen() {
-  const navigate = useNavigate();
-  const { isAuthenticated, isAdmin, loading: authLoading, profile } = useAuth();
+  const { isAdmin, loading: authLoading, profile } = useAuth();
 
   const [donationsList, setDonationsList] = useState<DonationRecord[]>(() => getStoredDonations());
   const [searchQuery, setSearchQuery] = useState("");
@@ -44,13 +43,6 @@ function AdminDonationsScreen() {
     const unsub = subscribeToDonations((data) => setDonationsList(data));
     return () => unsub();
   }, []);
-
-  // Auth protection guard
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      navigate({ to: "/login", replace: true });
-    }
-  }, [authLoading, isAuthenticated, navigate]);
 
   const totalDonationsAmount = useMemo(
     () =>

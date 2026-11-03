@@ -1,5 +1,5 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState, useEffect, useMemo } from "react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   ShieldAlert,
   ArrowLeft,
@@ -22,6 +22,7 @@ import {
   getSheltersOnce,
   subscribeToShelters,
   subscribeToAllSosRequests,
+  isApprovedVolunteer,
 } from "@/lib/firebase/firestore";
 import type { UserProfile, SosRequest } from "@/lib/firebase/types";
 import {
@@ -47,8 +48,7 @@ export const Route = createFileRoute("/admin_/reports")({
 });
 
 function AdminReportsScreen() {
-  const navigate = useNavigate();
-  const { isAuthenticated, isAdmin, loading: authLoading, profile } = useAuth();
+  const { isAdmin, loading: authLoading, profile } = useAuth();
 
   const [sosRequests, setSosRequests] = useState<SosRequest[]>([]);
   const [sheltersList, setSheltersList] = useState<Shelter[]>(() => getStoredShelters());
@@ -57,7 +57,7 @@ function AdminReportsScreen() {
   const [loadingData, setLoadingData] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoadingData(true);
     try {
       const [remoteShelters, allUsers] = await Promise.all([getSheltersOnce(), getAllUsers()]);
@@ -73,13 +73,13 @@ function AdminReportsScreen() {
     } finally {
       setLoadingData(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (isAdmin) {
       loadData();
     }
-  }, [isAdmin]);
+  }, [isAdmin, loadData]);
 
   // Real-time SOS subscriptions
   useEffect(() => {
@@ -100,13 +100,6 @@ function AdminReportsScreen() {
     });
     return () => unsubShelters();
   }, [isAdmin]);
-
-  // Auth protection guard
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      navigate({ to: "/login", replace: true });
-    }
-  }, [authLoading, isAuthenticated, navigate]);
 
   // Deduplicate shelters by authoritative ID to prevent duplicate reporting
   const uniqueShelters = useMemo(() => {
@@ -149,10 +142,8 @@ function AdminReportsScreen() {
   const resolvedSosCount = sosRequests.filter((s) => s.status === "resolved").length;
   const cancelledSosCount = sosRequests.filter((s) => s.status === "cancelled").length;
 
-  const approvedVolunteers = useMemo(
-    () => users.filter((u) => u.volunteerStatus === "approved" && u.role === "volunteer"),
-    [users],
-  );
+  // ADM-7: single authoritative definition of approved volunteers
+  const approvedVolunteers = useMemo(() => users.filter(isApprovedVolunteer), [users]);
   const pendingApplicants = useMemo(
     () => users.filter((u) => u.volunteerStatus === "pending"),
     [users],

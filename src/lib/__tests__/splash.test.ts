@@ -3,10 +3,13 @@ import { describe, expect, it } from "vitest";
 import { shouldShowSplash } from "@/lib/splash";
 
 describe("AUTH-1 & UX-2: splash screen display logic", () => {
-  it("always shows during the first resolution on client", () => {
-    for (const onAuthFormRoute of [true, false]) {
-      expect(shouldShowSplash({ initializing: true, loading: true, onAuthFormRoute })).toBe(true);
-    }
+  it("shows during the first resolution on normal client pages, but never replaces auth forms (AUTH-1 & UX-2)", () => {
+    expect(shouldShowSplash({ initializing: true, loading: true, onAuthFormRoute: false })).toBe(
+      true,
+    );
+    expect(shouldShowSplash({ initializing: true, loading: true, onAuthFormRoute: true })).toBe(
+      false,
+    );
   });
 
   it("shows on normal pages while a profile is resolving", () => {

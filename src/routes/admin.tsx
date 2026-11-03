@@ -36,6 +36,7 @@ import { requireSignedIn } from "@/lib/route-guards";
 import { db } from "@/lib/firebase/config";
 import {
   setVolunteerStatus,
+  isApprovedVolunteer,
   subscribeToAllSosRequests,
   updateSosStatus,
   cancelSosRequest,
@@ -115,13 +116,6 @@ export const Route = createFileRoute("/admin")({
   component: AdminScreen,
 });
 
-const DEFAULT_DISPATCH_UNITS = [
-  { id: "squad-alpha", label: "Rescue Squad Alpha (Unit 02)" },
-  { id: "boat-team-1", label: "Rapid Boat Rescue Team 1" },
-  { id: "medical-squad", label: "Medical First Responder Squad" },
-  { id: "fire-evac-taskforce", label: "Fire & Evacuation Task Force" },
-];
-
 function AdminScreen() {
   const navigate = useNavigate();
   const search = Route.useSearch();
@@ -133,6 +127,7 @@ function AdminScreen() {
   // Primary Data State
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
+  const [usersError, setUsersError] = useState<string | null>(null);
   const [sosRequests, setSosRequests] = useState<SosRequest[]>([]);
   const [sosSubscriptionError, setSosSubscriptionError] = useState<string | null>(null);
   const [sosSubscriptionRetries, setSosSubscriptionRetries] = useState(0);
@@ -152,8 +147,8 @@ function AdminScreen() {
   const [processingUid, setProcessingUid] = useState<string | null>(null);
   const [processingSosId, setProcessingSosId] = useState<string | null>(null);
   const [dispatchModalSos, setDispatchModalSos] = useState<SosRequest | null>(null);
-  const [selectedUnit, setSelectedUnit] = useState("Rescue Squad Alpha (Unit 02)");
-  const [selectedResponderId, setSelectedResponderId] = useState("squad-alpha");
+  const [selectedUnit, setSelectedUnit] = useState("");
+  const [selectedResponderId, setSelectedResponderId] = useState("");
   const [selectedEta, setSelectedEta] = useState("5 mins");
 
   // Shelter Edit, Delete & Create
@@ -182,10 +177,10 @@ function AdminScreen() {
     capacity: 150,
     occupied: 0,
     phone: "",
-    lat: 23.75,
-    lng: 90.38,
-    facilities: ["Food", "Water", "Beds"],
-    needs: "Drinking water, Emergency supplies",
+    lat: "",
+    lng: "",
+    facilities: [] as string[],
+    needs: "",
     image: "shelter-1" as "shelter-1" | "shelter-2" | "shelter-3",
   });
 
@@ -223,12 +218,14 @@ function AdminScreen() {
   const fetchUsers = useCallback(async () => {
     if (!db || !isAdmin) return;
     setLoadingUsers(true);
+    setUsersError(null);
     try {
       const all = await getAllUsers();
       setUsers(all);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Error loading users directory";
       console.error("Error loading users:", err);
+      setUsersError(msg);
       toast.error("Could not load users directory", { description: msg });
     } finally {
       setLoadingUsers(false);
@@ -268,25 +265,19 @@ function AdminScreen() {
     return () => unsub();
   }, [isAdmin]);
 
+  // Initial user directory fetch for verified admins (ADM-4: route-guard handles unauthorized access)
   useEffect(() => {
-    if (!authLoading) {
-      if (!isAuthenticated) {
-        navigate({ to: "/login", replace: true });
-      } else if (isAdmin) {
-        fetchUsers();
-      }
+    if (isAdmin) {
+      fetchUsers();
     }
-  }, [authLoading, isAuthenticated, isAdmin, fetchUsers, navigate]);
+  }, [isAdmin, fetchUsers]);
 
-  // Derived user categories - ADM-7: approved volunteers must have status approved AND role volunteer
+  // Derived user categories - ADM-7: single consistent definition of approved volunteers
   const pendingApplicants = useMemo(
     () => users.filter((u) => u.volunteerStatus === "pending"),
     [users],
   );
-  const approvedVolunteers = useMemo(
-    () => users.filter((u) => u.volunteerStatus === "approved" && u.role === "volunteer"),
-    [users],
-  );
+  const approvedVolunteers = useMemo(() => users.filter(isApprovedVolunteer), [users]);
   const registeredCitizens = useMemo(() => users.filter((u) => u.role !== "admin"), [users]);
 
   // Derived SOS Metrics
@@ -306,12 +297,13 @@ function AdminScreen() {
   // Volunteer Decisions - ADM-1 & ADM-2: Save rejection reason and prevent demoting admins
   const handleDecision = async (targetUid: string, approve: boolean, reason?: string) => {
     setProcessingUid(targetUid);
+    const cleanReason = reason?.trim();
     try {
-      await setVolunteerStatus(targetUid, approve ? "approved" : "rejected", reason);
+      await setVolunteerStatus(targetUid, approve ? "approved" : "rejected", cleanReason);
       toast.success(approve ? "Volunteer Approved!" : "Application Rejected", {
         description: approve
           ? "User role upgraded to Volunteer. Ready for emergency dispatch."
-          : `Application status set to rejected.${reason ? ` Reason: ${reason}` : ""}`,
+          : `Application status set to rejected.${cleanReason ? ` Reason: ${cleanReason}` : ""}`,
       });
       await fetchUsers();
       setRejectingUid(null);
@@ -324,9 +316,22 @@ function AdminScreen() {
     }
   };
 
-  // SOS Management Actions
+  // SOS Management Actions - ADM-6: bind real eligible responder identities from approved volunteers
   const handleOpenDispatch = (sos: SosRequest) => {
     setDispatchModalSos(sos);
+    if (approvedVolunteers.length > 0) {
+      const first = approvedVolunteers[0];
+      if (first) {
+        setSelectedResponderId(first.uid);
+        setSelectedUnit(`Volunteer: ${first.displayName} (${first.area || "Dhaka"})`);
+      } else {
+        setSelectedResponderId("");
+        setSelectedUnit("General Emergency Services");
+      }
+    } else {
+      setSelectedResponderId("");
+      setSelectedUnit("General Emergency Services");
+    }
   };
 
   const handleConfirmDispatch = async () => {
@@ -334,14 +339,24 @@ function AdminScreen() {
     setProcessingSosId(dispatchModalSos.id);
     try {
       const matchedVolunteer = approvedVolunteers.find((v) => v.uid === selectedResponderId);
+      // ADM-6: Validate responder eligibility and authorization before assignment
+      if (selectedResponderId && !matchedVolunteer) {
+        toast.error("Invalid responder", {
+          description: "Selected responder is not an active, approved volunteer.",
+        });
+        setProcessingSosId(null);
+        return;
+      }
       const responderInfo: { unit: string; eta: string; responderId?: string } = {
-        unit: selectedUnit,
+        unit: matchedVolunteer
+          ? `Volunteer: ${matchedVolunteer.displayName} (${matchedVolunteer.area || "Dhaka"})`
+          : selectedUnit.trim() || "General Emergency Services",
         eta: selectedEta,
-        responderId: matchedVolunteer ? matchedVolunteer.uid : selectedResponderId,
+        ...(matchedVolunteer ? { responderId: matchedVolunteer.uid } : {}),
       };
       await updateSosStatus(dispatchModalSos.id, "assigned", responderInfo);
       toast.success("Emergency Responder Dispatched!", {
-        description: `${selectedUnit} has been deployed (ETA: ${selectedEta}).`,
+        description: `${responderInfo.unit} has been deployed (ETA: ${selectedEta}).`,
       });
       setDispatchModalSos(null);
     } catch (err: unknown) {
@@ -495,64 +510,70 @@ function AdminScreen() {
   const handleSaveShelterCapacity = handleSaveShelter;
 
   const handleCreateShelter = async () => {
-    if (!newShelterForm.name.trim() || !newShelterForm.area.trim()) {
-      toast.error("Please fill in shelter name and area.");
+    const name = newShelterForm.name.trim();
+    const area = newShelterForm.area.trim();
+    if (!name || !area) {
+      toast.error("Validation error", { description: "Please fill in shelter name and area." });
       return;
     }
 
-    const rawPhone = newShelterForm.phone.trim();
-    if (rawPhone && !isValidPhone(rawPhone)) {
-      toast.error("Please enter a valid phone number (e.g. 017XXXXXXXX or +88017XXXXXXXX).");
+    // ADM-5: Require valid coordinates using existing isValidCoordinates utility; do not fabricate defaults
+    const latStr = String(newShelterForm.lat).trim();
+    const lngStr = String(newShelterForm.lng).trim();
+    if (!latStr || !lngStr) {
+      toast.error("Coordinates required", {
+        description: "Please enter both Latitude and Longitude for the shelter.",
+      });
       return;
     }
-    const cleanPhone = (rawPhone ? normalizePhone(rawPhone) : null) || "+880 1711 000 000";
+
+    const lat = Number(latStr);
+    const lng = Number(lngStr);
+    if (!isValidCoordinates({ lat, lng })) {
+      toast.error("Invalid coordinates", {
+        description:
+          "Coordinates must be valid numbers within Bangladesh bounds (Latitude 20.5–26.7, Longitude 88.0–92.7).",
+      });
+      return;
+    }
+
+    // ADM-5: Validate phone when provided; keep optional without fake fallback
+    const rawPhone = newShelterForm.phone.trim();
+    let cleanPhone = "";
+    if (rawPhone) {
+      if (!isValidPhone(rawPhone)) {
+        toast.error("Invalid phone number", {
+          description: "Please enter a valid phone number (e.g. 017XXXXXXXX or +88017XXXXXXXX).",
+        });
+        return;
+      }
+      cleanPhone = normalizePhone(rawPhone) || rawPhone;
+    }
 
     const cap = Math.max(1, Number(newShelterForm.capacity) || 100);
     const occ = Math.max(0, Math.min(Number(newShelterForm.occupied) || 0, cap));
 
-    const lat = Number(newShelterForm.lat);
-    const lng = Number(newShelterForm.lng);
-    const validLat = Number.isFinite(lat) && lat >= -90 && lat <= 90 ? lat : 23.75;
-    const validLng = Number.isFinite(lng) && lng >= -180 && lng <= 180 ? lng : 90.38;
-
-    // Calculate dynamic distance relative to Dhaka Center (23.8103, 90.4125)
-    const dhakaLat = 23.8103;
-    const dhakaLng = 90.4125;
-    const dLat = ((validLat - dhakaLat) * Math.PI) / 180;
-    const dLng = ((validLng - dhakaLng) * Math.PI) / 180;
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos((dhakaLat * Math.PI) / 180) *
-        Math.cos((validLat * Math.PI) / 180) *
-        Math.sin(dLng / 2) *
-        Math.sin(dLng / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    const calculatedDistanceKm = Math.max(0.5, Math.round(6371 * c * 10) / 10);
-
+    // ADM-5: Optional needs & facilities are genuinely optional; no fabricated defaults
     const parsedNeeds = newShelterForm.needs
       ? newShelterForm.needs
           .split(",")
           .map((s) => s.trim())
           .filter(Boolean)
-      : ["Drinking water", "Emergency supplies"];
+      : [];
 
     const newShelterData: Omit<Shelter, "id"> = {
-      name: newShelterForm.name.trim(),
-      area: newShelterForm.area.trim(),
-      distanceKm: calculatedDistanceKm,
+      name,
+      area,
       capacity: cap,
       occupied: occ,
       status: occ >= cap ? "full" : occ >= cap * 0.8 ? "limited" : "open",
-      facilities:
-        newShelterForm.facilities.length > 0
-          ? newShelterForm.facilities
-          : ["Food", "Water", "Beds"],
-      needs: parsedNeeds.length > 0 ? parsedNeeds : ["Drinking water", "Emergency supplies"],
+      facilities: newShelterForm.facilities,
+      needs: parsedNeeds,
       phone: cleanPhone,
       image: newShelterForm.image || "shelter-1",
       coordinates: {
-        lat: validLat,
-        lng: validLng,
+        lat,
+        lng,
       },
     };
 
@@ -566,10 +587,10 @@ function AdminScreen() {
         capacity: 150,
         occupied: 0,
         phone: "",
-        lat: 23.75,
-        lng: 90.38,
-        facilities: ["Food", "Water", "Beds"],
-        needs: "Drinking water, Emergency supplies",
+        lat: "",
+        lng: "",
+        facilities: [],
+        needs: "",
         image: "shelter-1",
       });
       toast.success("New Shelter Added to RescueLink!", {
@@ -934,6 +955,7 @@ function AdminScreen() {
                           </div>
 
                           <button
+                            type="button"
                             onClick={() => {
                               if (sos.status === "active") {
                                 handleOpenDispatch(sos);
@@ -957,6 +979,7 @@ function AdminScreen() {
               <SectionHeader title="Administrative Quick Actions" />
               <div className="grid grid-cols-2 gap-2">
                 <button
+                  type="button"
                   onClick={() => {
                     navigate({ to: "/admin/alerts", search: { create: true } });
                   }}
@@ -972,6 +995,7 @@ function AdminScreen() {
                 </button>
 
                 <button
+                  type="button"
                   onClick={() => {
                     setTab("shelters");
                     setIsAddingShelter(true);
@@ -1064,7 +1088,30 @@ function AdminScreen() {
           <div className="px-4 pt-4 space-y-3">
             {volunteerSubTab === "pending" ? (
               /* Pending Volunteer Applications */
-              pendingApplicants.length === 0 ? (
+              loadingUsers ? (
+                <Card className="py-12 text-center space-y-2">
+                  <div className="mx-auto h-7 w-7 animate-spin rounded-full border-2 border-navy border-t-transparent" />
+                  <p className="text-xs text-muted-foreground">Loading volunteer applications...</p>
+                </Card>
+              ) : usersError ? (
+                <Card className="py-10 text-center space-y-3 border-destructive/20 bg-destructive/5">
+                  <AlertTriangle className="mx-auto h-10 w-10 text-destructive" />
+                  <div>
+                    <p className="text-sm font-bold text-destructive">
+                      Failed to Load Applications
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">{usersError}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => fetchUsers()}
+                    className="press mx-auto inline-flex items-center gap-1.5 rounded-xl bg-navy px-4 py-2 text-xs font-bold text-white shadow-xs"
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" />
+                    <span>Retry Directory</span>
+                  </button>
+                </Card>
+              ) : pendingApplicants.length === 0 ? (
                 <Card className="py-12 text-center">
                   <CheckCircle2 className="mx-auto h-10 w-10 text-safe" />
                   <p className="mt-2 text-sm font-bold text-navy">All Applications Reviewed</p>
@@ -1146,8 +1193,45 @@ function AdminScreen() {
                   </Card>
                 ))
               )
+            ) : /* Approved Active Volunteers */
+            loadingUsers ? (
+              <Card className="py-12 text-center space-y-2">
+                <div className="mx-auto h-7 w-7 animate-spin rounded-full border-2 border-navy border-t-transparent" />
+                <p className="text-xs text-muted-foreground">Loading active volunteers...</p>
+              </Card>
+            ) : usersError ? (
+              <Card className="py-10 text-center space-y-3 border-destructive/20 bg-destructive/5">
+                <AlertTriangle className="mx-auto h-10 w-10 text-destructive" />
+                <div>
+                  <p className="text-sm font-bold text-destructive">Failed to Load Volunteers</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{usersError}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => fetchUsers()}
+                  className="press mx-auto inline-flex items-center gap-1.5 rounded-xl bg-navy px-4 py-2 text-xs font-bold text-white shadow-xs"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  <span>Retry Directory</span>
+                </button>
+              </Card>
+            ) : approvedVolunteers.filter((v) => {
+                const q = volunteerSearch.toLowerCase().trim();
+                if (!q) return true;
+                return (
+                  v.displayName.toLowerCase().includes(q) ||
+                  (v.area && v.area.toLowerCase().includes(q)) ||
+                  (v.email && v.email.toLowerCase().includes(q))
+                );
+              }).length === 0 ? (
+              <Card className="py-12 text-center">
+                <Users className="mx-auto h-10 w-10 text-muted-foreground" />
+                <p className="mt-2 text-sm font-bold text-navy">No Approved Volunteers</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  There are currently no approved community volunteers matching the search criteria.
+                </p>
+              </Card>
             ) : (
-              /* Approved Active Volunteers */
               approvedVolunteers
                 .filter((v) => {
                   const q = volunteerSearch.toLowerCase().trim();
@@ -1474,6 +1558,7 @@ function AdminScreen() {
             onBack={() => setTab("home")}
             right={
               <button
+                type="button"
                 onClick={() => setIsAddingShelter(true)}
                 className="press flex items-center gap-1 rounded-xl bg-navy px-3 py-1.5 text-xs font-bold text-white shadow-xs"
               >
@@ -1706,6 +1791,7 @@ function AdminScreen() {
               </Card>
 
               <button
+                type="button"
                 onClick={handleLogout}
                 className="press flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-destructive/20 bg-destructive/10 text-xs font-bold text-destructive shadow-xs"
               >
@@ -1727,6 +1813,8 @@ function AdminScreen() {
                 <h3 className="text-sm font-extrabold text-navy">Deploy Emergency Unit</h3>
               </div>
               <button
+                type="button"
+                aria-label="Close dispatch modal"
                 onClick={() => setDispatchModalSos(null)}
                 className="press rounded-full p-1 text-muted-foreground hover:bg-muted"
               >
@@ -1749,22 +1837,15 @@ function AdminScreen() {
                     setSelectedResponderId(val);
                     const matchedVol = approvedVolunteers.find((v) => v.uid === val);
                     if (matchedVol) {
-                      setSelectedUnit(`Volunteer Unit: ${matchedVol.displayName}`);
+                      setSelectedUnit(`Volunteer: ${matchedVol.displayName}`);
                     } else {
-                      const matchedUnit = DEFAULT_DISPATCH_UNITS.find((u) => u.id === val);
-                      setSelectedUnit(matchedUnit?.label || val);
+                      setSelectedUnit("General Emergency Services");
                     }
                   }}
                   className="mt-1 w-full rounded-xl border border-border bg-card p-2.5 text-xs font-medium text-navy outline-none"
                 >
-                  <optgroup label="Emergency Dispatch Squads">
-                    {DEFAULT_DISPATCH_UNITS.map((unit) => (
-                      <option key={unit.id} value={unit.id}>
-                        {unit.label}
-                      </option>
-                    ))}
-                  </optgroup>
-                  {approvedVolunteers.length > 0 && (
+                  <option value="">General Emergency Services (Unassigned)</option>
+                  {approvedVolunteers.length > 0 ? (
                     <optgroup label="Verified Community Volunteers">
                       {approvedVolunteers.map((v) => (
                         <option key={v.uid} value={v.uid}>
@@ -1772,6 +1853,10 @@ function AdminScreen() {
                         </option>
                       ))}
                     </optgroup>
+                  ) : (
+                    <option disabled value="__none">
+                      No approved volunteers available
+                    </option>
                   )}
                 </select>
               </div>
@@ -2218,10 +2303,12 @@ function AdminScreen() {
               </div>
 
               <div>
-                <label className="text-[11px] font-bold text-navy">Helpline Phone:</label>
+                <label className="text-[11px] font-bold text-navy">
+                  Helpline Phone (Optional):
+                </label>
                 <input
-                  type="text"
-                  placeholder="+880 1711 000 000"
+                  type="tel"
+                  placeholder="e.g. +880 1711 000000"
                   value={newShelterForm.phone}
                   onChange={(e) =>
                     setNewShelterForm((prev) => ({ ...prev, phone: e.target.value }))
@@ -2232,32 +2319,36 @@ function AdminScreen() {
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-[11px] font-bold text-navy">Latitude (GPS):</label>
+                  <label className="text-[11px] font-bold text-navy">
+                    Latitude (GPS) <span className="text-primary">*</span>:
+                  </label>
                   <input
                     type="number"
                     step="any"
-                    placeholder="23.7500"
+                    placeholder="e.g. 23.7500"
                     value={newShelterForm.lat}
                     onChange={(e) =>
                       setNewShelterForm((prev) => ({
                         ...prev,
-                        lat: parseFloat(e.target.value) || 0,
+                        lat: e.target.value,
                       }))
                     }
                     className="mt-1 w-full rounded-xl border border-border bg-card p-2 text-xs text-navy outline-none"
                   />
                 </div>
                 <div>
-                  <label className="text-[11px] font-bold text-navy">Longitude (GPS):</label>
+                  <label className="text-[11px] font-bold text-navy">
+                    Longitude (GPS) <span className="text-primary">*</span>:
+                  </label>
                   <input
                     type="number"
                     step="any"
-                    placeholder="90.3800"
+                    placeholder="e.g. 90.3800"
                     value={newShelterForm.lng}
                     onChange={(e) =>
                       setNewShelterForm((prev) => ({
                         ...prev,
-                        lng: parseFloat(e.target.value) || 0,
+                        lng: e.target.value,
                       }))
                     }
                     className="mt-1 w-full rounded-xl border border-border bg-card p-2 text-xs text-navy outline-none"
@@ -2266,7 +2357,9 @@ function AdminScreen() {
               </div>
 
               <div>
-                <label className="text-[11px] font-bold text-navy">Urgent Supplies & Needs:</label>
+                <label className="text-[11px] font-bold text-navy">
+                  Urgent Supplies & Needs (Optional, comma-separated):
+                </label>
                 <input
                   type="text"
                   placeholder="e.g. Drinking water, Emergency supplies, First Aid kits"
@@ -2279,7 +2372,9 @@ function AdminScreen() {
               </div>
 
               <div>
-                <label className="text-[11px] font-bold text-navy">Shelter Image Template:</label>
+                <label className="text-[11px] font-bold text-navy">
+                  Facility Illustration (Visual Placeholder):
+                </label>
                 <select
                   value={newShelterForm.image}
                   onChange={(e) =>
