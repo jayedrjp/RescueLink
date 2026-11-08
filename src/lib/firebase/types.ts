@@ -2,18 +2,33 @@ export type UserRole = "user" | "volunteer" | "admin";
 
 export type VolunteerStatus = "none" | "pending" | "approved" | "rejected";
 
+export type IdentityVerificationStatus = "pending" | "verified" | "rejected";
+
+export interface VolunteerApplication {
+  appliedAt: string;
+  skills?: string[];
+  area?: string;
+  notes?: string;
+  dateOfBirth?: string;
+  age?: number;
+  nidMasked?: string;
+  nidHash?: string;
+  nidEncrypted?: string;
+  identityVerificationStatus?: IdentityVerificationStatus;
+  identityVerifiedBy?: string;
+  identityVerifiedAt?: string;
+  identityRejectionReason?: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+}
+
 export interface UserProfile {
   uid: string;
   email: string;
   displayName: string;
   role: UserRole;
   volunteerStatus: VolunteerStatus;
-  volunteerApplication?: {
-    appliedAt: string;
-    skills?: string[];
-    area?: string;
-    notes?: string;
-  };
+  volunteerApplication?: VolunteerApplication;
   phone?: string;
   area?: string;
   createdAt: string;

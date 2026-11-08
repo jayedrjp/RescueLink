@@ -99,15 +99,31 @@ service cloud.firestore {
     function validVolunteerApplication(a) {
       return a is map
         && a.keys().hasAll(['appliedAt'])
-        && a.keys().hasOnly(['appliedAt', 'skills', 'area', 'notes'])
+        && a.keys().hasOnly([
+          'appliedAt', 'skills', 'area', 'notes',
+          'dateOfBirth', 'age', 'nidMasked', 'nidHash', 'nidEncrypted',
+          'identityVerificationStatus', 'identityVerifiedBy', 'identityVerifiedAt', 'identityRejectionReason',
+          'reviewedBy', 'reviewedAt'
+        ])
         && isStr(a.appliedAt, 10, 40)
         && (!('skills' in a) || (a.skills is list && a.skills.size() <= 20))
         && isOptStr(a, 'area', 120)
-        && isOptStr(a, 'notes', 1000);
+        && isOptStr(a, 'notes', 1000)
+        && isOptStr(a, 'dateOfBirth', 15)
+        && (!('age' in a) || (a.age is number && a.age >= 18 && a.age <= 30))
+        && isOptStr(a, 'nidMasked', 20)
+        && isOptStr(a, 'nidHash', 128)
+        && isOptStr(a, 'nidEncrypted', 500)
+        && (!('identityVerificationStatus' in a) || a.identityVerificationStatus in ['pending', 'verified', 'rejected'])
+        && isOptStr(a, 'identityVerifiedBy', 128)
+        && isOptStr(a, 'identityVerifiedAt', 40)
+        && isOptStr(a, 'identityRejectionReason', 1000)
+        && isOptStr(a, 'reviewedBy', 128)
+        && isOptStr(a, 'reviewedAt', 40);
     }
 
     // The owner may edit ordinary profile fields, or apply to volunteer
-    // (none/rejected -> pending). Nothing else: role, status approval, uid, email and
+    // (none/rejected/pending -> pending). Nothing else: role, status approval, uid, email and
     // createdAt are immutable from the owner's side.
     function validSelfProfileUpdate() {
       let d = request.resource.data;
@@ -120,10 +136,14 @@ service cloud.firestore {
           && isOptStr(d, 'area', 120)
         ) || (
           changed.hasOnly(['volunteerStatus', 'volunteerApplication', 'updatedAt'])
-          && changed.hasAll(['volunteerStatus', 'volunteerApplication'])
+          && changed.hasAny(['volunteerStatus', 'volunteerApplication'])
           && d.volunteerStatus == 'pending'
-          && resource.data.get('volunteerStatus', 'none') in ['none', 'rejected']
+          && resource.data.get('volunteerStatus', 'none') in ['none', 'rejected', 'pending']
           && validVolunteerApplication(d.volunteerApplication)
+          && d.volunteerApplication.get('identityVerificationStatus', 'pending') == 'pending'
+          && !d.volunteerApplication.keys().hasAny([
+            'identityVerifiedBy', 'identityVerifiedAt', 'identityRejectionReason', 'reviewedBy', 'reviewedAt'
+          ])
         )
       );
     }
@@ -161,6 +181,27 @@ service cloud.firestore {
       allow delete: if isAdmin()
                     && !isSelf(userId)
                     && resource.data.get('role', '') != 'admin';
+    }
+
+    // -------------------------------------------------------------------------
+    // volunteer_nids/{nidHash} (atomic NID uniqueness & identity registry)
+    // -------------------------------------------------------------------------
+    match /volunteer_nids/{nidHash} {
+      // Opaque to ordinary clients: only administrators can read or list
+      allow get, list: if isAdmin();
+
+      // Blind atomic creation: document must NOT exist, claimed by self
+      allow create: if isSignedIn()
+                    && !exists(/databases/$(database)/documents/volunteer_nids/$(nidHash))
+                    && request.resource.data.userId == request.auth.uid
+                    && isStr(request.resource.data.userId, 1, 128)
+                    && isStr(request.resource.data.createdAt, 10, 40);
+
+      // Immutable: no client updates permitted
+      allow update: if false;
+
+      // Deletion: administrator only
+      allow delete: if isAdmin();
     }
 
     // -------------------------------------------------------------------------

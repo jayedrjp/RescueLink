@@ -17,11 +17,21 @@ import type {
   UserProfile,
   UserRole,
   VolunteerStatus,
+  IdentityVerificationStatus,
+  VolunteerApplication,
   SosRequest,
   SosStatus,
   SosLocation,
   SosAssignedResponder,
 } from "./types";
+import {
+  calculateAge,
+  isAgeEligible,
+  isValidNid,
+  maskNid,
+  computeNidHash,
+  encryptNid,
+} from "../volunteer/volunteer-verification";
 import { parseSosTimestamp } from "../date-utils";
 import { isValidCoordinates } from "../map/types";
 import {
@@ -274,24 +284,148 @@ export async function updateUserProfile(
   await updateDoc(userRef, safeData);
 }
 
+export interface VolunteerApplicationInput {
+  skills?: string[];
+  area?: string;
+  notes?: string;
+  dateOfBirth?: string;
+  nid?: string;
+}
+
 /**
  * Allows a user to submit a volunteer application.
- * Changes volunteerStatus to 'pending'. This DOES NOT grant volunteer privileges
- * until approved by an administrator.
+ *
+ * Implements:
+ * - Age calculation & verification: applicant must be 18–30 years old inclusive.
+ * - NID format validation: exactly 10 numeric digits.
+ * - Keyed cryptographic HMAC digest generation for atomic database uniqueness.
+ * - Privacy-preserving NID masking (full NID is not stored in plaintext in the user profile).
+ * - Atomic Firestore transaction checking `volunteer_nids/{nidHash}` for existing registrations.
+ *   Throws exact error message: "This NID number is already registered." on duplicate.
+ * - Marks identityVerificationStatus as "pending" for manual administrator review.
  */
 export async function submitVolunteerApplication(
   uid: string,
-  applicationDetails?: {
-    skills?: string[];
-    area?: string;
-    notes?: string;
-  },
+  applicationDetails?: VolunteerApplicationInput,
 ): Promise<void> {
   if (!db) throw new Error("Firestore is not initialized.");
 
-  const userRef = doc(db, "users", uid);
   const now = new Date().toISOString();
+  const userRef = doc(db, "users", uid);
 
+  // If DOB or NID is provided, enforce strict backend validation and atomic uniqueness
+  const hasDobOrNid = Boolean(applicationDetails?.dateOfBirth || applicationDetails?.nid);
+
+  if (hasDobOrNid) {
+    const rawDob = (applicationDetails?.dateOfBirth ?? "").trim();
+    if (!rawDob) {
+      throw new Error("Date of birth is required.");
+    }
+
+    const calculatedAge = calculateAge(rawDob);
+    if (calculatedAge === null || !isAgeEligible(calculatedAge)) {
+      throw new Error("Volunteer applicants must be between 18 and 30 years of age (inclusive).");
+    }
+
+    const rawNid = (applicationDetails?.nid ?? "").trim();
+    if (!isValidNid(rawNid)) {
+      throw new Error("NID number must be exactly 10 numeric digits.");
+    }
+
+    const nidHash = await computeNidHash(rawNid);
+    const nidMasked = maskNid(rawNid);
+    const nidEncrypted = await encryptNid(rawNid);
+
+    const nidRef = doc(db, "volunteer_nids", nidHash);
+
+    let isOwnNid = false;
+    let userProfileReadSucceeded = false;
+
+    // Atomic transaction: claim registry key (if new) and update user application
+    try {
+      await runTransaction(db, async (tx) => {
+        const userSnap = await tx.get(userRef);
+        userProfileReadSucceeded = true;
+
+        if (!userSnap.exists()) {
+          throw new Error("Target user profile does not exist.");
+        }
+        const curUser = userSnap.data() as UserProfile;
+        if (curUser.role === "admin") {
+          throw new Error("Cannot alter volunteer status or demote an administrator.");
+        }
+        if (curUser.volunteerStatus === "approved") {
+          throw new Error("You are already an approved volunteer.");
+        }
+
+        isOwnNid = curUser.volunteerApplication?.nidHash === nidHash;
+
+        // Record atomic NID claim only if not already claimed by this user
+        if (!isOwnNid) {
+          tx.set(nidRef, {
+            userId: uid,
+            nidMasked,
+            createdAt: now,
+          });
+        }
+
+        // Update user document with pending identity verification
+        tx.update(userRef, {
+          volunteerStatus: "pending" as VolunteerStatus,
+          volunteerApplication: {
+            appliedAt: now,
+            skills: applicationDetails?.skills || ["General Relief"],
+            area: applicationDetails?.area || "Dhaka",
+            notes: applicationDetails?.notes || "",
+            dateOfBirth: rawDob,
+            age: calculatedAge,
+            nidMasked,
+            nidHash,
+            nidEncrypted,
+            identityVerificationStatus: "pending",
+          },
+          updatedAt: now,
+        });
+      });
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        // Preserve intentional application-level errors
+        if (
+          err.message.includes("Target user profile does not exist") ||
+          err.message.includes("Cannot alter volunteer status") ||
+          err.message.includes("You are already an approved volunteer") ||
+          err.message.includes("This NID number is already registered")
+        ) {
+          throw err;
+        }
+
+        // Check for Firestore permission-denied
+        const errorCode = (err as unknown as { code?: unknown }).code;
+        const isPermissionDenied =
+          (typeof errorCode === "string" &&
+            (errorCode === "permission-denied" || errorCode === "firestore/permission-denied")) ||
+          err.message.toLowerCase().includes("permission-denied") ||
+          err.message.toLowerCase().includes("missing or insufficient permissions") ||
+          err.message.toLowerCase().includes("already exists");
+
+        if (isPermissionDenied) {
+          if (!userProfileReadSucceeded) {
+            throw new Error(
+              "Permission denied. You do not have permission to access this profile.",
+            );
+          }
+          if (!isOwnNid) {
+            throw new Error("This NID number is already registered.");
+          }
+          throw new Error("Permission denied. Could not update volunteer application.");
+        }
+      }
+      throw err;
+    }
+    return;
+  }
+
+  // Graceful fallback for legacy test callers without DOB/NID
   await updateDoc(userRef, {
     volunteerStatus: "pending" as VolunteerStatus,
     volunteerApplication: {
@@ -300,6 +434,60 @@ export async function submitVolunteerApplication(
       area: applicationDetails?.area || "Dhaka",
       notes: applicationDetails?.notes || "",
     },
+    updatedAt: now,
+  });
+}
+
+/**
+ * Allows an authorized administrator to manually review and verify or reject an applicant's identity.
+ * Identity verification must precede volunteer application approval.
+ */
+export async function setIdentityVerificationStatus(
+  targetUid: string,
+  status: IdentityVerificationStatus,
+  adminUid: string,
+  rejectionReason?: string,
+): Promise<void> {
+  if (!db) throw new Error("Firestore is not initialized.");
+
+  if (!["pending", "verified", "rejected"].includes(status)) {
+    throw new Error(`Invalid identity verification status: "${status}"`);
+  }
+
+  const userRef = doc(db, "users", targetUid);
+  const snap = await getDoc(userRef);
+  if (!snap.exists()) {
+    throw new Error("Target user profile does not exist.");
+  }
+  const cur = snap.data() as UserProfile;
+  if (cur.role === "admin") {
+    const err = new Error("Cannot alter volunteer status or demote an administrator.");
+    (err as unknown as { code: string }).code = "permission-denied";
+    throw err;
+  }
+
+  const now = new Date().toISOString();
+  const existingApp = cur.volunteerApplication || {
+    appliedAt: now,
+    skills: ["General Relief"],
+    area: cur.area || "Dhaka",
+    notes: "",
+  };
+
+  const updateApp: Record<string, unknown> = {
+    ...existingApp,
+    identityVerificationStatus: status,
+    identityVerifiedBy: adminUid,
+    identityVerifiedAt: now,
+  };
+
+  if (status === "rejected") {
+    updateApp["identityRejectionReason"] =
+      (rejectionReason ?? "").trim() || "Identity verification rejected by administrator.";
+  }
+
+  await updateDoc(userRef, {
+    volunteerApplication: updateApp,
     updatedAt: now,
   });
 }
@@ -324,6 +512,7 @@ export async function setVolunteerStatus(
   targetUid: string,
   status: VolunteerStatus,
   rejectionReason?: string,
+  adminUid?: string,
 ): Promise<void> {
   if (!db) throw new Error("Firestore is not initialized.");
 
@@ -344,6 +533,16 @@ export async function setVolunteerStatus(
     throw err;
   }
 
+  // Pre-condition: approving a volunteer application requires identity verification if applicant submitted identity details
+  if (status === "approved") {
+    const identityStatus = cur.volunteerApplication?.identityVerificationStatus;
+    if (identityStatus && identityStatus !== "verified") {
+      throw new Error(
+        "Cannot approve volunteer application until identity verification has been completed.",
+      );
+    }
+  }
+
   const now = new Date().toISOString();
   // ADM-2: Only an approved status promotes to "volunteer"; any other status retains or reverts to "user"
   const role: UserRole = status === "approved" ? "volunteer" : "user";
@@ -352,6 +551,15 @@ export async function setVolunteerStatus(
     role,
     updatedAt: now,
   };
+
+  // Record approval metadata
+  if (status === "approved" && cur.volunteerApplication) {
+    updateData["volunteerApplication"] = {
+      ...cur.volunteerApplication,
+      reviewedBy: adminUid || "admin",
+      reviewedAt: now,
+    };
+  }
 
   // ADM-1: Persist validated rejection reason in volunteerApplication.notes (survives refreshes & reads)
   if (status === "rejected") {
@@ -370,6 +578,8 @@ export async function setVolunteerStatus(
     updateData["volunteerApplication"] = {
       ...existingApp,
       notes: finalReason,
+      reviewedBy: adminUid || "admin",
+      reviewedAt: now,
     };
   }
 

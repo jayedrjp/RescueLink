@@ -13,7 +13,7 @@
 
 ## 1. Executive Summary
 
-This independent technical audit was conducted to verify the actual implementation status of the **RescueLink Emergency Response and Disaster Management System**, comparing the current production-ready codebase against the initial academic project proposal. 
+This independent technical audit was conducted to verify the actual implementation status of the **RescueLink Emergency Response and Disaster Management System**, comparing the current production-ready codebase against the initial academic project proposal.
 
 RescueLink was conceived as a life-critical emergency management platform for Bangladesh, designed to bridge communication gaps during natural disasters (floods, cyclones, earthquakes) between affected citizens, on-the-ground volunteer rescue teams, and centralized disaster administrators.
 
@@ -70,26 +70,26 @@ The audited codebase reveals a modern, high-performance, full-stack TypeScript a
 
 ### Detailed Component Inventory
 
-| Category | Technology / Library | Version | File / Configuration Evidence |
-|---|---|---|---|
-| **Frontend Framework** | React / React DOM | `^19.2.0` | `package.json` (`"react": "^19.2.0"`) |
-| **Meta-Framework** | TanStack Start | `^1.168.32` | `package.json`, `app.config.ts` |
-| **Routing System** | TanStack Router | `^1.170.18` | `package.json`, `src/routes/` file-based routes |
-| **State & Cache** | TanStack React Query | `^5.90.20` | `package.json`, `src/routes/__root.tsx` |
-| **Styling & Design** | Tailwind CSS v4 | `^4.2.1` | `package.json`, `src/styles.css` (`@import "tailwindcss";`) |
-| **UI Components** | Radix UI + Lucide React | Multiple | `package.json` (`@radix-ui/react-*`, `lucide-react`) |
-| **Mobile Runtime** | Capacitor Android | `^8.5.3` | `capacitor.config.ts`, `android/app/build.gradle` |
-| **Bundler & Server** | Vite 8 + Nitro | `^8.2.2` / `2.12.9` | `package.json`, `app.config.ts`, `vite.mobile.config.ts` |
-| **Mapping Engine** | Leaflet + React-Leaflet | `^1.9.4` / `^5.0.0` | `src/components/InteractiveMap.tsx`, `package.json` |
-| **Map Tile Provider** | OpenStreetMap (OSM) | Standard Tile API | `src/components/InteractiveMap.tsx` line 208 |
-| **Geocoding APIs** | OSM Nominatim & Overpass | Public APIs | `src/lib/map/places.ts`, `src/lib/location.ts` |
-| **Authentication** | Firebase Auth | `^13.0.0` | `src/lib/firebase/config.ts`, `src/lib/firebase/auth.ts` |
-| **Primary Database** | Cloud Firestore | `^13.0.0` | `src/lib/firebase/config.ts`, `src/lib/firebase/firestore.ts` |
-| **Security Layer** | Firebase App Check | `^13.0.0` | `src/lib/firebase/config.ts` (reCAPTCHA v3 provider) |
-| **Notification Engine**| W3C Web Push + Service Worker | VAPID Standard | `src/lib/weather/push-service.ts`, `public/sw.js` |
-| **Weather API** | Open-Meteo Forecast API | Free Public API | `src/lib/weather/api.ts` |
-| **Form Validation** | Zod | `^3.24.2` | `src/lib/firebase/types.ts`, `src/routes/admin.tsx` |
-| **Testing Harness** | Vitest + Testing Library | `^3.2.4` / `^16.2.0` | `vitest.config.ts`, `src/**/*.test.ts*` |
+| Category                | Technology / Library          | Version              | File / Configuration Evidence                                 |
+| ----------------------- | ----------------------------- | -------------------- | ------------------------------------------------------------- |
+| **Frontend Framework**  | React / React DOM             | `^19.2.0`            | `package.json` (`"react": "^19.2.0"`)                         |
+| **Meta-Framework**      | TanStack Start                | `^1.168.32`          | `package.json`, `app.config.ts`                               |
+| **Routing System**      | TanStack Router               | `^1.170.18`          | `package.json`, `src/routes/` file-based routes               |
+| **State & Cache**       | TanStack React Query          | `^5.90.20`           | `package.json`, `src/routes/__root.tsx`                       |
+| **Styling & Design**    | Tailwind CSS v4               | `^4.2.1`             | `package.json`, `src/styles.css` (`@import "tailwindcss";`)   |
+| **UI Components**       | Radix UI + Lucide React       | Multiple             | `package.json` (`@radix-ui/react-*`, `lucide-react`)          |
+| **Mobile Runtime**      | Capacitor Android             | `^8.5.3`             | `capacitor.config.ts`, `android/app/build.gradle`             |
+| **Bundler & Server**    | Vite 8 + Nitro                | `^8.2.2` / `2.12.9`  | `package.json`, `app.config.ts`, `vite.mobile.config.ts`      |
+| **Mapping Engine**      | Leaflet + React-Leaflet       | `^1.9.4` / `^5.0.0`  | `src/components/InteractiveMap.tsx`, `package.json`           |
+| **Map Tile Provider**   | OpenStreetMap (OSM)           | Standard Tile API    | `src/components/InteractiveMap.tsx` line 208                  |
+| **Geocoding APIs**      | OSM Nominatim & Overpass      | Public APIs          | `src/lib/map/places.ts`, `src/lib/location.ts`                |
+| **Authentication**      | Firebase Auth                 | `^13.0.0`            | `src/lib/firebase/config.ts`, `src/lib/firebase/auth.ts`      |
+| **Primary Database**    | Cloud Firestore               | `^13.0.0`            | `src/lib/firebase/config.ts`, `src/lib/firebase/firestore.ts` |
+| **Security Layer**      | Firebase App Check            | `^13.0.0`            | `src/lib/firebase/config.ts` (reCAPTCHA v3 provider)          |
+| **Notification Engine** | W3C Web Push + Service Worker | VAPID Standard       | `src/lib/weather/push-service.ts`, `public/sw.js`             |
+| **Weather API**         | Open-Meteo Forecast API       | Free Public API      | `src/lib/weather/api.ts`                                      |
+| **Form Validation**     | Zod                           | `^3.24.2`            | `src/lib/firebase/types.ts`, `src/routes/admin.tsx`           |
+| **Testing Harness**     | Vitest + Testing Library      | `^3.2.4` / `^16.2.0` | `vitest.config.ts`, `src/**/*.test.ts*`                       |
 
 ---
 
@@ -97,15 +97,15 @@ The audited codebase reveals a modern, high-performance, full-stack TypeScript a
 
 The table below contrasts the technologies proposed in the academic concept against what was actually constructed, along with verifiable architectural justifications.
 
-| Proposed Technology | Actual Technology | Status | Verified Evidence & Reason for Change |
-|---|---|---|---|
-| **React Native + Expo** (Mobile) | **Capacitor 8 + React 19** (`android/`) | **Changed** | **Evidence:** `capacitor.config.ts`, `android/app/build.gradle`, `vite.mobile.config.ts`.<br>**Reason:** Eliminates multi-codebase divergence. Allows 100% code sharing between web and mobile, preserving unified TanStack routing, Leaflet rendering, and offline Firestore cache without maintaining separate React Native bridging code. |
-| **Next.js** (Public Web) | **TanStack Start (Vite + Nitro)** | **Changed** | **Evidence:** `app.config.ts`, `package.json` (`@tanstack/start`).<br>**Reason:** Native synergy with TanStack Router and Query. TanStack Start compiles directly into client SPA bundles for Capacitor mobile builds (`npm run build:mobile`) while providing server-side capability for web hosting. |
-| **Google Maps API** | **Leaflet 1.9.4 + OpenStreetMap** | **Changed** | **Evidence:** `src/components/InteractiveMap.tsx` (`https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png`).<br>**Reason:** High API billing costs and mandatory credit-card requirements for Google Maps SDK. OSM/Leaflet provides free, open-source tile rendering, Overpass API access for emergency facilities, and deep-links to external Google Maps for turn-by-turn routing (`buildDirectionsUrl`). |
-| **Firebase Cloud Messaging (FCM)** | **W3C Web Push API + Service Worker** | **Changed** | **Evidence:** `src/lib/weather/push-service.ts`, `public/sw.js`.<br>**Reason:** Standard Web Push with VAPID runs natively in all modern web browsers and PWA shells without requiring proprietary FCM client libraries or Google Play Services dependencies on devices. |
-| **Firebase Realtime Database** | **Cloud Firestore (`onSnapshot`)** | **Changed** | **Evidence:** `src/lib/firebase/firestore.ts`, `src/lib/firebase/config.ts`.<br>**Reason:** Firestore offers richer query capabilities, structured document-collection hierarchies, multi-field indexing, security rules, and offline persistence. RTDB was unnecessary. |
-| **Firebase Cloud Storage** | **Local Assets / Base64 Data URLs** | **Dropped / Simplified** | **Evidence:** `src/lib/firebase/config.ts` (Storage SDK not initialized).<br>**Reason:** Avatars and report media utilize local asset catalogs and lightweight data strings, avoiding cloud storage quotas and billing. |
-| **Firebase Cloud Functions** | **Client & Server-side Nitro Endpoints** | **Changed** | **Evidence:** Absence of `/functions` directory; `src/lib/weather/push-dispatcher.ts`.<br>**Reason:** Background weather evaluation and client-side notifications run directly in the application runtime and service worker. |
+| Proposed Technology                | Actual Technology                        | Status                   | Verified Evidence & Reason for Change                                                                                                                                                                                                                                                                                                                                                                    |
+| ---------------------------------- | ---------------------------------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **React Native + Expo** (Mobile)   | **Capacitor 8 + React 19** (`android/`)  | **Changed**              | **Evidence:** `capacitor.config.ts`, `android/app/build.gradle`, `vite.mobile.config.ts`.<br>**Reason:** Eliminates multi-codebase divergence. Allows 100% code sharing between web and mobile, preserving unified TanStack routing, Leaflet rendering, and offline Firestore cache without maintaining separate React Native bridging code.                                                             |
+| **Next.js** (Public Web)           | **TanStack Start (Vite + Nitro)**        | **Changed**              | **Evidence:** `app.config.ts`, `package.json` (`@tanstack/start`).<br>**Reason:** Native synergy with TanStack Router and Query. TanStack Start compiles directly into client SPA bundles for Capacitor mobile builds (`npm run build:mobile`) while providing server-side capability for web hosting.                                                                                                   |
+| **Google Maps API**                | **Leaflet 1.9.4 + OpenStreetMap**        | **Changed**              | **Evidence:** `src/components/InteractiveMap.tsx` (`https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png`).<br>**Reason:** High API billing costs and mandatory credit-card requirements for Google Maps SDK. OSM/Leaflet provides free, open-source tile rendering, Overpass API access for emergency facilities, and deep-links to external Google Maps for turn-by-turn routing (`buildDirectionsUrl`). |
+| **Firebase Cloud Messaging (FCM)** | **W3C Web Push API + Service Worker**    | **Changed**              | **Evidence:** `src/lib/weather/push-service.ts`, `public/sw.js`.<br>**Reason:** Standard Web Push with VAPID runs natively in all modern web browsers and PWA shells without requiring proprietary FCM client libraries or Google Play Services dependencies on devices.                                                                                                                                 |
+| **Firebase Realtime Database**     | **Cloud Firestore (`onSnapshot`)**       | **Changed**              | **Evidence:** `src/lib/firebase/firestore.ts`, `src/lib/firebase/config.ts`.<br>**Reason:** Firestore offers richer query capabilities, structured document-collection hierarchies, multi-field indexing, security rules, and offline persistence. RTDB was unnecessary.                                                                                                                                 |
+| **Firebase Cloud Storage**         | **Local Assets / Base64 Data URLs**      | **Dropped / Simplified** | **Evidence:** `src/lib/firebase/config.ts` (Storage SDK not initialized).<br>**Reason:** Avatars and report media utilize local asset catalogs and lightweight data strings, avoiding cloud storage quotas and billing.                                                                                                                                                                                  |
+| **Firebase Cloud Functions**       | **Client & Server-side Nitro Endpoints** | **Changed**              | **Evidence:** Absence of `/functions` directory; `src/lib/weather/push-dispatcher.ts`.<br>**Reason:** Background weather evaluation and client-side notifications run directly in the application runtime and service worker.                                                                                                                                                                            |
 
 ---
 
@@ -123,25 +123,25 @@ Role enforcement is backed by both client-side route guards (`src/routes/admin.t
 
 ```javascript
 function isAdmin() {
-  return isAuthenticated() && request.auth.token.role == 'admin';
+  return isAuthenticated() && request.auth.token.role == "admin";
 }
 function isVolunteer() {
-  return isAuthenticated() && request.auth.token.role in ['volunteer', 'admin'];
+  return isAuthenticated() && request.auth.token.role in ["volunteer", "admin"];
 }
 ```
 
 ### Analysis of Proposed Roles
 
 1. **Citizen (`"user"`):**  
-   *Status: Fully Implemented.* Standard role assigned upon registration. Access to emergency SOS broadcasts, shelter searches, interactive facility maps, weather alerts, volunteer registration, and donation pledges.
+   _Status: Fully Implemented._ Standard role assigned upon registration. Access to emergency SOS broadcasts, shelter searches, interactive facility maps, weather alerts, volunteer registration, and donation pledges.
 2. **Volunteer (`"volunteer"`):**  
-   *Status: Fully Implemented.* Users can apply for volunteer verification (`src/routes/volunteer.tsx`). Once approved by an Admin in Firestore, volunteers gain access to the Volunteer Dispatch Dashboard to accept incoming SOS alerts and coordinate emergency tasks.
+   _Status: Fully Implemented._ Users can apply for volunteer verification (`src/routes/volunteer.tsx`). Once approved by an Admin in Firestore, volunteers gain access to the Volunteer Dispatch Dashboard to accept incoming SOS alerts and coordinate emergency tasks.
 3. **Admin (`"admin"`):**  
-   *Status: Fully Implemented.* Full administrative governance over the entire system via `/admin` and `/admin/reports`. Controls shelter management, incident verification, volunteer status approvals, donation ledger monitoring, and system metrics.
+   _Status: Fully Implemented._ Full administrative governance over the entire system via `/admin` and `/admin/reports`. Controls shelter management, incident verification, volunteer status approvals, donation ledger monitoring, and system metrics.
 4. **Shelter Authority:**  
-   *Status: Merged into Admin.* In the original proposal, shelter managers had a dedicated portal. In the actual implementation, shelter creation, capacity updates, supply status, and deletions are managed centrally through the Admin Shelters Tab (`/admin?tab=shelters`).
+   _Status: Merged into Admin._ In the original proposal, shelter managers had a dedicated portal. In the actual implementation, shelter creation, capacity updates, supply status, and deletions are managed centrally through the Admin Shelters Tab (`/admin?tab=shelters`).
 5. **Donor:**  
-   *Status: Merged into Citizen / Public Access.* Instead of a restricted donor-only login, donation capabilities (`/donate`) are accessible to all registered citizens and guest visitors, increasing accessibility during disaster campaigns.
+   _Status: Merged into Citizen / Public Access._ Instead of a restricted donor-only login, donation capabilities (`/donate`) are accessible to all registered citizens and guest visitors, increasing accessibility during disaster campaigns.
 
 ### Application Scope & Packaging
 
@@ -159,72 +159,86 @@ function isVolunteer() {
 The project includes 14 comprehensive functional modules:
 
 ### 5.1 User Authentication & Profile
+
 - **Status:** Fully Functional
 - **File References:** `src/routes/login.tsx`, `src/routes/register.tsx`, `src/routes/profile.tsx`, `src/lib/firebase/auth.ts`
 - **Capabilities:** Email/password authentication, Google OAuth integration (`@capgo/capacitor-social-login`), persistent auth sessions, profile updates (blood group, emergency contact phone, medical notes, district/division), role detection.
 - **Limitations:** Password reset relies on Firebase default email handlers.
 
 ### 5.2 SOS Emergency Dispatch
+
 - **Status:** Fully Functional
 - **File References:** `src/routes/sos.tsx`, `src/lib/firebase/firestore.ts`, `src/components/InteractiveMap.tsx`
 - **Capabilities:** One-touch SOS activation with countdown cancellation barrier (prevents accidental triggers). Automatically captures real-time GPS coordinates, reverse-geocodes address via OSM Nominatim, and streams active SOS alerts to Firestore `reports` and `alerts` collections.
 
 ### 5.3 Live Map & Emergency Facilities
+
 - **Status:** Fully Functional
 - **File References:** `src/routes/map.tsx`, `src/components/InteractiveMap.tsx`, `src/lib/map/places.ts`
 - **Capabilities:** Leaflet interactive canvas displaying user geolocation, shelter locations, active SOS beacons, and nearby emergency services (Hospitals, Police, Fire Stations) queried via Overpass API. One-click external turn-by-turn navigation deep-links to Google Maps.
 
 ### 5.4 Shelter Discovery, Availability & Saved Filter
+
 - **Status:** Fully Functional
 - **File References:** `src/routes/shelters.index.tsx`, `src/routes/shelters.$shelterId.tsx`, `src/lib/data.ts`
 - **Capabilities:** District/division search, real-time occupancy meters (`currentOccupancy / maxCapacity`), status badges (Open, Near Full, Full, Closed), supply checklist (food, water, medical, power), offline fallback seed data. Includes PRO-2 "Saved Only" toggle filter reading from client `localStorage`.
 
 ### 5.5 Admin Shelter Management (Full CRUD & Auto-Upsert)
+
 - **Status:** Fully Functional
 - **File References:** `src/routes/admin.tsx`, `src/lib/firebase/firestore.ts` (`saveShelter`, `deleteShelter`)
 - **Capabilities:** Unified modal dialog allowing Admins to create new shelters, edit existing remote records, or automatically upsert local fallback shelters into live Cloud Firestore documents with deterministic IDs. Deletion dialog includes confirmation guard.
 
 ### 5.6 Admin Emergency Reports & Verification
+
 - **Status:** Fully Functional
 - **File References:** `src/routes/admin_.reports.tsx`, `src/lib/firebase/firestore.ts`
 - **Capabilities:** Real-time stream of incoming citizen incident reports and SOS distress calls. Admins can verify reports, update resolution status (`pending`, `verified`, `resolved`), assign dispatch units, and filter by disaster type (Flood, Cyclone, Fire, Medical).
 
 ### 5.7 Volunteer Management & Dispatch
+
 - **Status:** Fully Functional
 - **File References:** `src/routes/volunteer.tsx`, `src/lib/firebase/firestore.ts`
 - **Capabilities:** Registration portal for certified first responders. Admin verification workflow. Real-time emergency mission feed displaying proximity, required skills, and task completion checklists.
 
 ### 5.8 Disaster Weather Monitoring & Early Warning
+
 - **Status:** Fully Functional
 - **File References:** `src/routes/weather.tsx`, `src/components/WeatherWidget.tsx`, `src/lib/weather/api.ts`
 - **Capabilities:** Real-time Open-Meteo REST API integration for Bangladesh coordinates (Dhaka, Chittagong, Sylhet, etc.). Visual metrics for precipitation, wind speed, atmospheric pressure, and automated flood/cyclone warning levels.
 
 ### 5.9 Web Push Notification Engine
+
 - **Status:** Fully Functional
 - **File References:** `src/lib/weather/push-service.ts`, `src/lib/weather/push-dispatcher.ts`, `public/sw.js`
 - **Capabilities:** Browser-level VAPID Web Push subscription management. Service Worker background notification handler. In-app toast dispatcher (`sonner`) triggered by emergency thresholds.
 
 ### 5.10 Emergency Contacts Directory
+
 - **Status:** Fully Functional
 - **File References:** `src/routes/services.tsx`, `src/lib/services-data.ts`
 - **Capabilities:** Categorized national emergency hotlines (National Emergency 999, Disaster Management 1090, Fire Service 16163, Red Crescent, Ambulance Corps). Direct `tel:` protocol integration for one-tap calling.
 
 ### 5.11 Disaster Donation & Supply Pledging
+
 - **Status:** Functional (Pledge/Ledger mode; Payment Gateway UI-only)
 - **File References:** `src/routes/donate.tsx`, `src/routes/admin_.donations.tsx`
 - **Capabilities:** Allows users to pledge monetary contributions (bKash, Nagad, Card UI selector) or physical relief supplies (packaged rations, clean water, blankets, medical kits). Writes donation records to Firestore `donations` collection and client storage, audited in Admin Donations console.
 
 ### 5.12 Citizen Dashboard & Activity Center
+
 - **Status:** Fully Functional
 - **File References:** `src/routes/index.tsx`, `src/routes/welcome.tsx`, `src/routes/onboarding.tsx`
 - **Capabilities:** Quick-action grid for SOS, Shelters, Map, Services, Weather, and Donations. Activity feed summarizing current district alerts and nearby emergency missions.
 
 ### 5.13 Settings & Device Permissions
+
 - **Status:** Fully Functional
 - **File References:** `src/routes/settings.tsx`, `src/lib/location.ts`
 - **Capabilities:** Geolocation permission diagnostics, notification permission toggle, offline caching toggles, dark/light theme preferences, app version information.
 
 ### 5.14 Privacy Policy & Help Guide
+
 - **Status:** Fully Functional
 - **File References:** `src/routes/privacy.tsx`, `src/routes/help.tsx`
 - **Capabilities:** Explanations of data handling during emergency broadcasts, emergency guidance checklists (What to do during floods, earthquakes, cyclones), offline survival manual.
@@ -233,13 +247,13 @@ The project includes 14 comprehensive functional modules:
 
 ## 6. Partially Implemented and Missing Features
 
-| Feature / Capability | Status | File Reference | Technical Limitation / Missing Component |
-|---|---|---|---|
-| **Live Payment Gateway** | **Partially Implemented (UI & Ledger Only)** | `src/routes/donate.tsx` | UI allows method selection (bKash, Nagad, Card) and creates Firestore records. **No merchant API integration** (SSLCommerz, bKash Checkout API, or Stripe SDK). |
-| **Direct Cloud Media Uploads** | **Partially Implemented** | `src/lib/firebase/config.ts` | Firebase Storage is not initialized. Photos submitted with disaster reports use local URLs or base64 strings rather than cloud storage buckets. |
-| **Dedicated Shelter Authority Portal** | **Merged / Subsumed** | `src/routes/admin.tsx` | Not a standalone portal. Shelter managers must be given `"admin"` role to modify shelters via `/admin`. |
-| **Two-Way Volunteer Chat** | **Planned / Not Implemented** | N/A | Real-time chat messaging between citizen and assigned volunteer is not implemented; status updates are communicated via report status changes. |
-| **Automated SMS Gateway** | **Planned / Not Implemented** | N/A | GSM/Twilio SMS fallback for low-bandwidth 2G environments is not present; requires telecom gateway provider. |
+| Feature / Capability                   | Status                                       | File Reference               | Technical Limitation / Missing Component                                                                                                                        |
+| -------------------------------------- | -------------------------------------------- | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Live Payment Gateway**               | **Partially Implemented (UI & Ledger Only)** | `src/routes/donate.tsx`      | UI allows method selection (bKash, Nagad, Card) and creates Firestore records. **No merchant API integration** (SSLCommerz, bKash Checkout API, or Stripe SDK). |
+| **Direct Cloud Media Uploads**         | **Partially Implemented**                    | `src/lib/firebase/config.ts` | Firebase Storage is not initialized. Photos submitted with disaster reports use local URLs or base64 strings rather than cloud storage buckets.                 |
+| **Dedicated Shelter Authority Portal** | **Merged / Subsumed**                        | `src/routes/admin.tsx`       | Not a standalone portal. Shelter managers must be given `"admin"` role to modify shelters via `/admin`.                                                         |
+| **Two-Way Volunteer Chat**             | **Planned / Not Implemented**                | N/A                          | Real-time chat messaging between citizen and assigned volunteer is not implemented; status updates are communicated via report status changes.                  |
+| **Automated SMS Gateway**              | **Planned / Not Implemented**                | N/A                          | GSM/Twilio SMS fallback for low-bandwidth 2G environments is not present; requires telecom gateway provider.                                                    |
 
 ---
 
@@ -256,7 +270,7 @@ The project includes 14 comprehensive functional modules:
 - **Development Platform:** Connected with **Lovable** (`lovable.dev`) as evidenced by `AGENTS.md` and `@lovable.dev/vite-tanstack-config`.
 - **Web Build Target:** Nitro Server engine with Vite (`npm run build`). Generates production-ready standalone SSR/SSG server bundles deployable to Cloudflare Pages, Vercel, or Node server hosts.
 - **Android Native Target:** Capacitor Android project (`android/`) ready for compilation into Android APK/AAB via Android Studio or Gradle CLI (`npm run build:mobile` -> `npx cap sync android`).
-- **Live Deployment URL:** *Requires Developer Confirmation* (no fixed static production domain hardcoded into the source code repository).
+- **Live Deployment URL:** _Requires Developer Confirmation_ (no fixed static production domain hardcoded into the source code repository).
 
 ---
 
@@ -265,6 +279,7 @@ The project includes 14 comprehensive functional modules:
 The RescueLink Capstone project was developed by a two-member engineering team under the supervision of Dr. Mahfida Amjad Dipa at UITS:
 
 ### Abdur Rahman Jayed (Project Lead & Full-Stack Architect)
+
 - **Role:** Technical Lead, System Architecture, Core Implementation.
 - **Architectural Deliverables:**
   - Designed and implemented the TanStack Start + Vite meta-framework architecture.
@@ -275,6 +290,7 @@ The RescueLink Capstone project was developed by a two-member engineering team u
   - Built the automated testing infrastructure (595+ unit/integration tests in Vitest).
 
 ### Rowshon Jahan Poddo (Collaborator & Frontend Specialist)
+
 - **Role:** Co-Developer, UI/UX Implementation, Domain Modules.
 - **Deliverables & Contributions:**
   - Contributed to UI layout, styling, and responsiveness using Tailwind CSS and Radix UI.
@@ -282,21 +298,21 @@ The RescueLink Capstone project was developed by a two-member engineering team u
   - Collaborated on the disaster weather monitoring interface (`weather.tsx`) and Open-Meteo widget integration.
   - Participated in requirements analysis, UAT test execution scenarios, and academic documentation drafting.
 
-*Note on Git Commit Metrics:* As the current workspace is an unbundled source distribution snapshot without local `.git` metadata, exact per-developer commit counts must be verified directly from the GitHub repository commit graph at `https://github.com/JayedR/RescueLink`.
+_Note on Git Commit Metrics:_ As the current workspace is an unbundled source distribution snapshot without local `.git` metadata, exact per-developer commit counts must be verified directly from the GitHub repository commit graph at `https://github.com/JayedR/RescueLink`.
 
 ---
 
 ## 9. AI Tools and Development Tools
 
-| Tool | Category | Status | Verified Evidence & Purpose |
-|---|---|---|---|
-| **Google Antigravity** | Agentic AI Assistant | Verified | Workspace context metadata, automation tasks, background test runner, and independent QA verification. |
-| **Lovable** (`lovable.dev`) | AI Web Development Platform | Verified | Explicitly documented in `AGENTS.md` ("This project is connected to Lovable") and `@lovable.dev/vite-tanstack-config` in `package.json`. |
-| **Claude / Claude Code** | AI Development Assistant | Probable / Requiring Confirmation | Common toolchain companion for code generation and test drafting. |
-| **VS Code** | Primary IDE | Verified | Workspace configuration, standard TypeScript project layout. |
-| **Firebase Console / Emulator** | Backend & Local Database | Verified | `firebase.json` (Firestore emulator port 8080), emulator unit tests (`src/lib/__tests__/shelters.emulator.test.ts`). |
-| **Android Studio / Gradle** | Mobile Build Tools | Verified | `android/` directory, `build.gradle`, `gradlew`, AndroidManifest.xml. |
-| **Vitest** | Automated Test Framework | Verified | `vitest.config.ts`, 595+ test specifications in `src/**/__tests__/`. |
+| Tool                            | Category                    | Status                            | Verified Evidence & Purpose                                                                                                              |
+| ------------------------------- | --------------------------- | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| **Google Antigravity**          | Agentic AI Assistant        | Verified                          | Workspace context metadata, automation tasks, background test runner, and independent QA verification.                                   |
+| **Lovable** (`lovable.dev`)     | AI Web Development Platform | Verified                          | Explicitly documented in `AGENTS.md` ("This project is connected to Lovable") and `@lovable.dev/vite-tanstack-config` in `package.json`. |
+| **Claude / Claude Code**        | AI Development Assistant    | Probable / Requiring Confirmation | Common toolchain companion for code generation and test drafting.                                                                        |
+| **VS Code**                     | Primary IDE                 | Verified                          | Workspace configuration, standard TypeScript project layout.                                                                             |
+| **Firebase Console / Emulator** | Backend & Local Database    | Verified                          | `firebase.json` (Firestore emulator port 8080), emulator unit tests (`src/lib/__tests__/shelters.emulator.test.ts`).                     |
+| **Android Studio / Gradle**     | Mobile Build Tools          | Verified                          | `android/` directory, `build.gradle`, `gradlew`, AndroidManifest.xml.                                                                    |
+| **Vitest**                      | Automated Test Framework    | Verified                          | `vitest.config.ts`, 595+ test specifications in `src/**/__tests__/`.                                                                     |
 
 ---
 
@@ -318,7 +334,7 @@ The RescueLink Capstone project was developed by a two-member engineering team u
 - **Course:** CSE 416 – Capstone / Software Development Project.
 - **Academic Supervisor:** Dr. Mahfida Amjad Dipa.
 - **Mid-Term Evaluation Status:** The codebase files and markdown documents do not contain instructor rubrics or formal midterm feedback transcripts.
-- **Status:** *Requires Confirmation by Team Members.* (To be presented verbally or attached as an appendix in the final bound university report).
+- **Status:** _Requires Confirmation by Team Members._ (To be presented verbally or attached as an appendix in the final bound university report).
 
 ---
 
@@ -326,46 +342,46 @@ The RescueLink Capstone project was developed by a two-member engineering team u
 
 To support the preparation of the final university defense slide deck and report, the 11 key application screens are inventoried below:
 
-| # | Screen Description | Route / Component | Features Demonstrated | Screenshot In Repo? | Recommended Action |
-|---|---|---|---|---|---|
-| 1 | **Login Screen** | `/login` (`src/routes/login.tsx`) | Email/password input, Google Sign-in button, form validation, error banners | No dedicated static capture in `public/` | **Screenshot required** (Capture `/login` with test credentials) |
-| 2 | **Registration Screen** | `/register` (`src/routes/register.tsx`) | Account creation form, role default, blood group & district selectors | No dedicated static capture in `public/` | **Screenshot required** (Capture `/register` form) |
-| 3 | **Citizen Dashboard** | `/` (`src/routes/index.tsx`) | Emergency SOS banner, quick action tiles, live weather alert ticker, recent reports | Onboarding graphics exist | **Screenshot required** (Capture mobile viewport at `/`) |
-| 4 | **SOS Emergency Screen** | `/sos` (`src/routes/sos.tsx`) | Big Red SOS button, 3-second hold countdown, GPS address indicator, emergency type | No dedicated static capture in `public/` | **Screenshot required** (Capture active countdown state) |
-| 5 | **Live Map & Facilities** | `/map` (`src/routes/map.tsx`) | Leaflet OpenStreetMap canvas, user pin, nearby hospital/police markers, radius | No dedicated static capture in `public/` | **Screenshot required** (Capture full map with facility pins) |
-| 6 | **Shelter Discovery** | `/shelters` (`src/routes/shelters.index.tsx`) | Shelter cards, capacity progress meters, Open/Full status, Saved Only filter | Verified QA captures in artifact directory | **Screenshot required** (Capture list with Saved Only enabled) |
-| 7 | **Volunteer Dashboard** | `/volunteer` (`src/routes/volunteer.tsx`) | Active SOS dispatch queue, incident details, Accept Mission button | No dedicated static capture in `public/` | **Screenshot required** (Capture logged in as volunteer) |
-| 8 | **Admin Console & Reports** | `/admin` & `/admin/reports` | Shelter CRUD modal, incident verification status, donation ledger, user stats | Verified QA captures in artifact directory | **Screenshot required** (Capture Admin Shelter & Reports tabs) |
-| 9 | **Donation & Pledges** | `/donate` (`src/routes/donate.tsx`) | Relief item selector, monetary preset amounts, bKash/Nagad options, pledge submit | No dedicated static capture in `public/` | **Screenshot required** (Capture donation options modal) |
-| 10 | **User Profile** | `/profile` (`src/routes/profile.tsx`) | User credentials, blood group, emergency contact details, role badge | No dedicated static capture in `public/` | **Screenshot required** (Capture user profile details) |
-| 11 | **Settings & Permissions** | `/settings` (`src/routes/settings.tsx`) | Geolocation permission check, push notifications toggle, offline cache toggle | No dedicated static capture in `public/` | **Screenshot required** (Capture permissions diagnostic cards) |
+| #   | Screen Description          | Route / Component                             | Features Demonstrated                                                               | Screenshot In Repo?                        | Recommended Action                                               |
+| --- | --------------------------- | --------------------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------ | ---------------------------------------------------------------- |
+| 1   | **Login Screen**            | `/login` (`src/routes/login.tsx`)             | Email/password input, Google Sign-in button, form validation, error banners         | No dedicated static capture in `public/`   | **Screenshot required** (Capture `/login` with test credentials) |
+| 2   | **Registration Screen**     | `/register` (`src/routes/register.tsx`)       | Account creation form, role default, blood group & district selectors               | No dedicated static capture in `public/`   | **Screenshot required** (Capture `/register` form)               |
+| 3   | **Citizen Dashboard**       | `/` (`src/routes/index.tsx`)                  | Emergency SOS banner, quick action tiles, live weather alert ticker, recent reports | Onboarding graphics exist                  | **Screenshot required** (Capture mobile viewport at `/`)         |
+| 4   | **SOS Emergency Screen**    | `/sos` (`src/routes/sos.tsx`)                 | Big Red SOS button, 3-second hold countdown, GPS address indicator, emergency type  | No dedicated static capture in `public/`   | **Screenshot required** (Capture active countdown state)         |
+| 5   | **Live Map & Facilities**   | `/map` (`src/routes/map.tsx`)                 | Leaflet OpenStreetMap canvas, user pin, nearby hospital/police markers, radius      | No dedicated static capture in `public/`   | **Screenshot required** (Capture full map with facility pins)    |
+| 6   | **Shelter Discovery**       | `/shelters` (`src/routes/shelters.index.tsx`) | Shelter cards, capacity progress meters, Open/Full status, Saved Only filter        | Verified QA captures in artifact directory | **Screenshot required** (Capture list with Saved Only enabled)   |
+| 7   | **Volunteer Dashboard**     | `/volunteer` (`src/routes/volunteer.tsx`)     | Active SOS dispatch queue, incident details, Accept Mission button                  | No dedicated static capture in `public/`   | **Screenshot required** (Capture logged in as volunteer)         |
+| 8   | **Admin Console & Reports** | `/admin` & `/admin/reports`                   | Shelter CRUD modal, incident verification status, donation ledger, user stats       | Verified QA captures in artifact directory | **Screenshot required** (Capture Admin Shelter & Reports tabs)   |
+| 9   | **Donation & Pledges**      | `/donate` (`src/routes/donate.tsx`)           | Relief item selector, monetary preset amounts, bKash/Nagad options, pledge submit   | No dedicated static capture in `public/`   | **Screenshot required** (Capture donation options modal)         |
+| 10  | **User Profile**            | `/profile` (`src/routes/profile.tsx`)         | User credentials, blood group, emergency contact details, role badge                | No dedicated static capture in `public/`   | **Screenshot required** (Capture user profile details)           |
+| 11  | **Settings & Permissions**  | `/settings` (`src/routes/settings.tsx`)       | Geolocation permission check, push notifications toggle, offline cache toggle       | No dedicated static capture in `public/`   | **Screenshot required** (Capture permissions diagnostic cards)   |
 
-*Note:* Captured QA artifacts from recent Phase 4 & Phase 5 automated browser verification runs are preserved in the artifact storage folder (`.gemini/antigravity/brain/.../screenshots/`). For the university report, capture clean high-resolution viewports in 390x844 (iPhone 14) and 1280x800 desktop formats.
+_Note:_ Captured QA artifacts from recent Phase 4 & Phase 5 automated browser verification runs are preserved in the artifact storage folder (`.gemini/antigravity/brain/.../screenshots/`). For the university report, capture clean high-resolution viewports in 390x844 (iPhone 14) and 1280x800 desktop formats.
 
 ---
 
 ## 13. Proposal vs. Implementation Comparison Matrix
 
-| Area | Original Proposal | Actual Implementation | Status | Evidence / File Reference |
-|---|---|---|---|---|
-| **Mobile Tech** | React Native + Expo | Capacitor 8 + React 19 (Android) | **Changed** | `capacitor.config.ts`, `android/app/build.gradle` |
-| **Web Tech** | Next.js (SSR/Static) | TanStack Start (Vite + Nitro) | **Changed** | `package.json`, `app.config.ts` |
-| **Mapping Engine** | Google Maps SDK | Leaflet 1.9.4 + OpenStreetMap Tiles | **Changed** | `src/components/InteractiveMap.tsx` |
-| **Geocoding** | Google Geocoding API | OSM Nominatim + Overpass API | **Changed** | `src/lib/map/places.ts`, `src/lib/location.ts` |
-| **Turn-by-Turn Nav**| In-app Google Navigation | Outbound Google Maps URL Deep-Link | **Implemented as proposed** | `buildDirectionsUrl()` in `src/components/InteractiveMap.tsx` |
-| **Push Notifications**| Firebase Cloud Messaging (FCM)| W3C Web Push API (VAPID) + SW | **Changed** | `src/lib/weather/push-service.ts`, `public/sw.js` |
-| **Primary Database** | Cloud Firestore | Cloud Firestore 13.0.0 | **Implemented as proposed** | `src/lib/firebase/firestore.ts` |
-| **Realtime Database**| Firebase Realtime DB | Dropped (Firestore `onSnapshot` used) | **Changed / Dropped** | Absence of `getDatabase` in `src/lib/firebase/config.ts` |
-| **File Storage** | Firebase Cloud Storage | Local storage / Base64 data URLs | **Dropped / Simplified** | Storage SDK not initialized in `src/lib/firebase/config.ts` |
-| **User Roles** | 5 Roles (Citizen, Volunteer, Admin, Shelter, Donor) | 3 Roles (`"user"`, `"volunteer"`, `"admin"`) | **Changed / Consolidated**| `src/lib/firebase/types.ts`, `firestore.rules` |
-| **Website & App** | 2 Separate Codebases | 1 Unified Cross-Platform Codebase | **Changed / Improved** | Dual target: Nitro web bundle + Capacitor Android APK |
-| **Public Access** | Unspecified | Public access to Map, Shelters, Hotlines | **Implemented as proposed** | Routes readable without authentication token |
-| **SOS Emergency** | Emergency SOS Broadcast | One-tap SOS with GPS & Countdown cancel | **Implemented as proposed** | `src/routes/sos.tsx`, `src/lib/firebase/firestore.ts` |
-| **Shelter Management**| Independent Shelter Authority | Central Admin Shelter CRUD & Auto-Upsert| **Implemented as proposed** | `src/routes/admin.tsx`, `saveShelter()` in `firestore.ts` |
-| **Volunteer System** | Volunteer registration & tasks | Volunteer role request, dispatch list | **Implemented as proposed** | `src/routes/volunteer.tsx`, `firestore.rules` |
-| **Donations** | Complete disaster donation system| In-app donation & pledge system | **Partially implemented** | `src/routes/donate.tsx` (No real payment gateway API) |
-| **Weather Advisories**| Basic disaster warnings | Open-Meteo REST API live forecasts | **Implemented as proposed** | `src/routes/weather.tsx`, `src/lib/weather/api.ts` |
-| **CI/CD** | Automated GitHub Actions | Manual npm scripts (`test`, `build`) | **Not implemented** | No `.github/workflows/` directory |
+| Area                   | Original Proposal                                   | Actual Implementation                        | Status                      | Evidence / File Reference                                     |
+| ---------------------- | --------------------------------------------------- | -------------------------------------------- | --------------------------- | ------------------------------------------------------------- |
+| **Mobile Tech**        | React Native + Expo                                 | Capacitor 8 + React 19 (Android)             | **Changed**                 | `capacitor.config.ts`, `android/app/build.gradle`             |
+| **Web Tech**           | Next.js (SSR/Static)                                | TanStack Start (Vite + Nitro)                | **Changed**                 | `package.json`, `app.config.ts`                               |
+| **Mapping Engine**     | Google Maps SDK                                     | Leaflet 1.9.4 + OpenStreetMap Tiles          | **Changed**                 | `src/components/InteractiveMap.tsx`                           |
+| **Geocoding**          | Google Geocoding API                                | OSM Nominatim + Overpass API                 | **Changed**                 | `src/lib/map/places.ts`, `src/lib/location.ts`                |
+| **Turn-by-Turn Nav**   | In-app Google Navigation                            | Outbound Google Maps URL Deep-Link           | **Implemented as proposed** | `buildDirectionsUrl()` in `src/components/InteractiveMap.tsx` |
+| **Push Notifications** | Firebase Cloud Messaging (FCM)                      | W3C Web Push API (VAPID) + SW                | **Changed**                 | `src/lib/weather/push-service.ts`, `public/sw.js`             |
+| **Primary Database**   | Cloud Firestore                                     | Cloud Firestore 13.0.0                       | **Implemented as proposed** | `src/lib/firebase/firestore.ts`                               |
+| **Realtime Database**  | Firebase Realtime DB                                | Dropped (Firestore `onSnapshot` used)        | **Changed / Dropped**       | Absence of `getDatabase` in `src/lib/firebase/config.ts`      |
+| **File Storage**       | Firebase Cloud Storage                              | Local storage / Base64 data URLs             | **Dropped / Simplified**    | Storage SDK not initialized in `src/lib/firebase/config.ts`   |
+| **User Roles**         | 5 Roles (Citizen, Volunteer, Admin, Shelter, Donor) | 3 Roles (`"user"`, `"volunteer"`, `"admin"`) | **Changed / Consolidated**  | `src/lib/firebase/types.ts`, `firestore.rules`                |
+| **Website & App**      | 2 Separate Codebases                                | 1 Unified Cross-Platform Codebase            | **Changed / Improved**      | Dual target: Nitro web bundle + Capacitor Android APK         |
+| **Public Access**      | Unspecified                                         | Public access to Map, Shelters, Hotlines     | **Implemented as proposed** | Routes readable without authentication token                  |
+| **SOS Emergency**      | Emergency SOS Broadcast                             | One-tap SOS with GPS & Countdown cancel      | **Implemented as proposed** | `src/routes/sos.tsx`, `src/lib/firebase/firestore.ts`         |
+| **Shelter Management** | Independent Shelter Authority                       | Central Admin Shelter CRUD & Auto-Upsert     | **Implemented as proposed** | `src/routes/admin.tsx`, `saveShelter()` in `firestore.ts`     |
+| **Volunteer System**   | Volunteer registration & tasks                      | Volunteer role request, dispatch list        | **Implemented as proposed** | `src/routes/volunteer.tsx`, `firestore.rules`                 |
+| **Donations**          | Complete disaster donation system                   | In-app donation & pledge system              | **Partially implemented**   | `src/routes/donate.tsx` (No real payment gateway API)         |
+| **Weather Advisories** | Basic disaster warnings                             | Open-Meteo REST API live forecasts           | **Implemented as proposed** | `src/routes/weather.tsx`, `src/lib/weather/api.ts`            |
+| **CI/CD**              | Automated GitHub Actions                            | Manual npm scripts (`test`, `build`)         | **Not implemented**         | No `.github/workflows/` directory                             |
 
 ---
 
@@ -414,22 +430,22 @@ Before submitting the final academic report to the department supervisor, the st
 1. **Was the technology stack intentionally changed?**  
    **Yes.** The technology stack was intentionally transitioned to a unified React 19 + TanStack Start + Capacitor 8 architecture to enable a single cross-platform codebase, and to Leaflet/OpenStreetMap to eliminate costly third-party map API dependencies.
 
-2. **What is the actual reason for each change, if verifiable?**  
-   - *Capacitor instead of React Native:* Code reuse; allows identical routing, UI, and Leaflet map rendering across web and Android.
-   - *TanStack Start instead of Next.js:* Native compatibility with TanStack Router/Query and seamless compilation into client-side SPA bundles for mobile packaging.
-   - *Leaflet/OSM instead of Google Maps:* Zero-cost, open-source mapping with no API key quotas or credit card requirements.
-   - *Web Push instead of FCM:* Open W3C standard functioning across modern desktop and mobile browsers without Google Play Services dependencies.
+2. **What is the actual reason for each change, if verifiable?**
+   - _Capacitor instead of React Native:_ Code reuse; allows identical routing, UI, and Leaflet map rendering across web and Android.
+   - _TanStack Start instead of Next.js:_ Native compatibility with TanStack Router/Query and seamless compilation into client-side SPA bundles for mobile packaging.
+   - _Leaflet/OSM instead of Google Maps:_ Zero-cost, open-source mapping with no API key quotas or credit card requirements.
+   - _Web Push instead of FCM:_ Open W3C standard functioning across modern desktop and mobile browsers without Google Play Services dependencies.
 
-3. **Which proposal features were dropped?**  
+3. **Which proposal features were dropped?**
    - Standalone Firebase Realtime Database (superseded by Firestore).
    - Firebase Cloud Storage bucket integration (media stored via local assets and base64).
    - Firebase Cloud Functions (superseded by client-side logic and Nitro endpoints).
    - Commercial payment gateway clearing (replaced by pledge and ledger recording).
 
-4. **Which features were merged into other existing features?**  
-   - *Shelter Authority Role:* Merged into the Admin console (`/admin?tab=shelters`).
-   - *Donor Role:* Merged into general Citizen and unauthenticated guest access (`/donate`).
-   - *Public Marketing Site:* Merged into the primary responsive application via public routes (`/welcome`, `/services`, etc.).
+4. **Which features were merged into other existing features?**
+   - _Shelter Authority Role:_ Merged into the Admin console (`/admin?tab=shelters`).
+   - _Donor Role:_ Merged into general Citizen and unauthenticated guest access (`/donate`).
+   - _Public Marketing Site:_ Merged into the primary responsive application via public routes (`/welcome`, `/services`, etc.).
 
 5. **Is there a separate mobile application?**  
    **No separate repository exists.** The mobile application is generated directly from this unified codebase using **Capacitor 8.5.3**, with native Android project assets in the `/android` directory.
@@ -444,7 +460,7 @@ Before submitting the final academic report to the department supervisor, the st
    `https://github.com/JayedR/RescueLink.git`
 
 9. **What is the deployed URL?**  
-   *Requires Developer Confirmation* (no fixed static production domain hardcoded into the source repository; connected with Lovable development platform).
+   _Requires Developer Confirmation_ (no fixed static production domain hardcoded into the source repository; connected with Lovable development platform).
 
 10. **What did Jayed contribute?**  
     Project Lead and System Architect: Core TanStack + Capacitor framework setup, Firebase integration (Auth, Firestore, App Check), Admin shelter CRUD and auto-upsert workflows, Leaflet OSM mapping integration, and Vitest test suite implementation.
@@ -452,10 +468,10 @@ Before submitting the final academic report to the department supervisor, the st
 11. **What did Rowshon contribute?**  
     Frontend Specialist and Collaborator: UI component development with Tailwind CSS and Radix UI, emergency services directory, disaster weather monitoring interface, UAT testing execution, and documentation assistance.
 
-12. **Which AI tools were used?**  
+12. **Which AI tools were used?**
     - **Google Antigravity:** Agentic coding, automated testing, and comprehensive QA auditing.
     - **Lovable (`lovable.dev`):** Connected AI development platform (`AGENTS.md`).
-    - *Claude / Copilot:* Plausible development assistants (Requires team confirmation).
+    - _Claude / Copilot:_ Plausible development assistants (Requires team confirmation).
 
 13. **Is CI/CD configured?**  
     **No.** No GitHub Actions workflow files exist in `.github/workflows/`. Builds and tests are executed locally via npm scripts.
@@ -467,5 +483,5 @@ Before submitting the final academic report to the department supervisor, the st
     The live deployed URL, supervisor midterm feedback notes, and exact GitHub commit metrics from the remote repository.
 
 ---
-*Report compiled and verified from source code inspection of RescueLink.*
 
+_Report compiled and verified from source code inspection of RescueLink._

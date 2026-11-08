@@ -1,6 +1,7 @@
 {
   "projects": {
     "default": "rescue-linkbd"
-  }
+  },
+  "targets": {},
+  "etags": {}
 }
-

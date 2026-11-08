@@ -36,6 +36,7 @@ import { requireSignedIn } from "@/lib/route-guards";
 import { db } from "@/lib/firebase/config";
 import {
   setVolunteerStatus,
+  setIdentityVerificationStatus,
   isApprovedVolunteer,
   subscribeToAllSosRequests,
   updateSosStatus,
@@ -122,7 +123,7 @@ function AdminScreen() {
   const currentTab = (search.tab || "home") as "home" | "volunteers" | "sos" | "shelters" | "more";
   const currentSub = search.sub || "all";
 
-  const { isAuthenticated, isAdmin, loading: authLoading, profile, logout } = useAuth();
+  const { user, isAuthenticated, isAdmin, loading: authLoading, profile, logout } = useAuth();
 
   // Primary Data State
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -187,6 +188,8 @@ function AdminScreen() {
   // Rejection modal
   const [rejectingUid, setRejectingUid] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
+  const [rejectingIdentityUid, setRejectingIdentityUid] = useState<string | null>(null);
+  const [rejectIdentityReason, setRejectIdentityReason] = useState("");
 
   const setTab = (tab: string, sub?: string) => {
     // Tabs are siblings, not pages: replace the entry so browser Back does not walk through them.
@@ -299,7 +302,12 @@ function AdminScreen() {
     setProcessingUid(targetUid);
     const cleanReason = reason?.trim();
     try {
-      await setVolunteerStatus(targetUid, approve ? "approved" : "rejected", cleanReason);
+      await setVolunteerStatus(
+        targetUid,
+        approve ? "approved" : "rejected",
+        cleanReason,
+        user?.uid,
+      );
       toast.success(approve ? "Volunteer Approved!" : "Application Rejected", {
         description: approve
           ? "User role upgraded to Volunteer. Ready for emergency dispatch."
@@ -310,6 +318,33 @@ function AdminScreen() {
       setRejectReason("");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Permission denied";
+      toast.error("Action failed", { description: msg });
+    } finally {
+      setProcessingUid(null);
+    }
+  };
+
+  // Manual Identity Verification Decisions
+  const handleIdentityDecision = async (targetUid: string, verified: boolean, reason?: string) => {
+    setProcessingUid(targetUid);
+    const cleanReason = reason?.trim();
+    try {
+      await setIdentityVerificationStatus(
+        targetUid,
+        verified ? "verified" : "rejected",
+        user?.uid || "admin",
+        cleanReason,
+      );
+      toast.success(verified ? "Identity Verified" : "Identity Rejected", {
+        description: verified
+          ? "Applicant identity verified. Volunteer application can now be approved."
+          : `Identity verification marked as rejected.${cleanReason ? ` Reason: ${cleanReason}` : ""}`,
+      });
+      await fetchUsers();
+      setRejectingIdentityUid(null);
+      setRejectIdentityReason("");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Identity verification failed";
       toast.error("Action failed", { description: msg });
     } finally {
       setProcessingUid(null);
@@ -1120,78 +1155,201 @@ function AdminScreen() {
                   </p>
                 </Card>
               ) : (
-                pendingApplicants.map((applicant) => (
-                  <Card key={applicant.uid} className="space-y-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-bold text-navy">{applicant.displayName}</p>
-                        <p className="text-xs text-muted-foreground">{applicant.email}</p>
-                        {applicant.phone && (
-                          <a
-                            href={`tel:${toDialablePhone(applicant.phone)}`}
-                            className="mt-0.5 inline-flex items-center gap-1 text-[11px] font-semibold text-info"
-                          >
-                            <Phone className="h-3 w-3" />
-                            {applicant.phone}
-                          </a>
-                        )}
-                        <p className="mt-1 text-[11px] font-medium text-navy/80">
-                          📍 {applicant.area || "Dhaka"} · Applied{" "}
-                          {new Date(applicant.updatedAt).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <span className="rounded-full bg-warn/20 px-2.5 py-1 text-[10px] font-bold uppercase text-warn-foreground">
-                        Pending
-                      </span>
-                    </div>
+                pendingApplicants.map((applicant) => {
+                  const identityStatus =
+                    applicant.volunteerApplication?.identityVerificationStatus ??
+                    (applicant.volunteerApplication?.nidMasked ? "pending" : "verified");
+                  const isIdentityVerified = identityStatus === "verified";
+                  const isIdentityRejected = identityStatus === "rejected";
+                  const isIdentityPending = identityStatus === "pending";
 
-                    {/* Skills & Notes */}
-                    {applicant.volunteerApplication && (
-                      <div className="rounded-xl bg-muted/60 p-2.5 text-xs">
-                        <p className="font-semibold text-navy">Specialties & Skills:</p>
-                        <div className="mt-1.5 flex flex-wrap gap-1">
-                          {applicant.volunteerApplication.skills?.map((skill) => (
-                            <span
-                              key={skill}
-                              className="rounded-full bg-navy/10 px-2 py-0.5 text-[10px] font-semibold text-navy"
+                  return (
+                    <Card key={applicant.uid} className="space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-bold text-navy">{applicant.displayName}</p>
+                          <p className="text-xs text-muted-foreground">{applicant.email}</p>
+                          {applicant.phone && (
+                            <a
+                              href={`tel:${toDialablePhone(applicant.phone)}`}
+                              className="mt-0.5 inline-flex items-center gap-1 text-[11px] font-semibold text-info"
                             >
-                              {skill}
-                            </span>
-                          ))}
+                              <Phone className="h-3 w-3" />
+                              {applicant.phone}
+                            </a>
+                          )}
+                          <p className="mt-1 text-[11px] font-medium text-navy/80">
+                            📍 {applicant.area || "Dhaka"} · Applied{" "}
+                            {new Date(applicant.updatedAt).toLocaleDateString()}
+                          </p>
                         </div>
-                        {applicant.volunteerApplication.notes && (
-                          <p className="mt-2 text-[11.5px] italic text-muted-foreground">
-                            "{applicant.volunteerApplication.notes}"
+                        <div className="flex flex-col items-end gap-1 shrink-0">
+                          <span className="rounded-full bg-warn/20 px-2.5 py-1 text-[10px] font-bold uppercase text-warn-foreground">
+                            Application Pending
+                          </span>
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-[9.5px] font-bold ${
+                              isIdentityVerified
+                                ? "bg-safe/15 text-safe"
+                                : isIdentityRejected
+                                  ? "bg-destructive/15 text-destructive"
+                                  : "bg-warn/15 text-warn-foreground"
+                            }`}
+                          >
+                            {isIdentityVerified
+                              ? "Identity Verified"
+                              : isIdentityRejected
+                                ? "Identity Rejected"
+                                : "Identity Pending"}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* NID & Age Details (Manual Verification) */}
+                      {applicant.volunteerApplication &&
+                        (applicant.volunteerApplication.dateOfBirth ||
+                          applicant.volunteerApplication.nidMasked) && (
+                          <div className="rounded-xl border border-border/70 bg-surface/80 p-2.5 text-xs space-y-1">
+                            <p className="font-bold text-navy text-[11.5px]">
+                              Applicant Eligibility & Identity:
+                            </p>
+                            <div className="grid grid-cols-2 gap-2 text-[11px] text-navy/80">
+                              {applicant.volunteerApplication.dateOfBirth && (
+                                <div>
+                                  <span className="text-muted-foreground">DOB: </span>
+                                  <span className="font-semibold">
+                                    {applicant.volunteerApplication.dateOfBirth}
+                                  </span>
+                                </div>
+                              )}
+                              {applicant.volunteerApplication.age !== undefined && (
+                                <div>
+                                  <span className="text-muted-foreground">Age: </span>
+                                  <span className="font-semibold">
+                                    {applicant.volunteerApplication.age} yrs
+                                  </span>
+                                </div>
+                              )}
+                              {applicant.volunteerApplication.nidMasked && (
+                                <div className="col-span-2">
+                                  <span className="text-muted-foreground">NID Number: </span>
+                                  <span className="font-mono font-bold tracking-wider">
+                                    {applicant.volunteerApplication.nidMasked}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                            {applicant.volunteerApplication.identityVerifiedAt && (
+                              <p className="text-[10px] text-muted-foreground pt-0.5">
+                                Identity checked:{" "}
+                                {new Date(
+                                  applicant.volunteerApplication.identityVerifiedAt,
+                                ).toLocaleDateString()}
+                              </p>
+                            )}
+                            {applicant.volunteerApplication.identityRejectionReason && (
+                              <p className="text-[10.5px] text-destructive italic">
+                                Rejection note: "
+                                {applicant.volunteerApplication.identityRejectionReason}"
+                              </p>
+                            )}
+                          </div>
+                        )}
+
+                      {/* Skills & Notes */}
+                      {applicant.volunteerApplication && (
+                        <div className="rounded-xl bg-muted/60 p-2.5 text-xs">
+                          <p className="font-semibold text-navy">Specialties & Skills:</p>
+                          <div className="mt-1.5 flex flex-wrap gap-1">
+                            {applicant.volunteerApplication.skills?.map((skill) => (
+                              <span
+                                key={skill}
+                                className="rounded-full bg-navy/10 px-2 py-0.5 text-[10px] font-semibold text-navy"
+                              >
+                                {skill}
+                              </span>
+                            ))}
+                          </div>
+                          {applicant.volunteerApplication.notes && (
+                            <p className="mt-2 text-[11.5px] italic text-muted-foreground">
+                              "{applicant.volunteerApplication.notes}"
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Step 1: Identity Verification Actions (if pending) */}
+                      {isIdentityPending && (
+                        <div className="rounded-xl border border-warn/30 bg-warn/5 p-2.5 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-bold text-navy">
+                              Step 1: Manual Identity Verification
+                            </span>
+                            <span className="text-[10px] text-muted-foreground">
+                              Review NID & DOB
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              type="button"
+                              disabled={processingUid === applicant.uid}
+                              onClick={() => handleIdentityDecision(applicant.uid, true)}
+                              className="press flex h-8 items-center justify-center gap-1.5 rounded-lg bg-navy/90 text-[11px] font-bold text-white shadow-xs disabled:opacity-60"
+                            >
+                              <CheckCircle2 className="h-3.5 w-3.5 text-safe" />
+                              <span>Verify Identity</span>
+                            </button>
+                            <button
+                              type="button"
+                              disabled={processingUid === applicant.uid}
+                              onClick={() => setRejectingIdentityUid(applicant.uid)}
+                              className="press flex h-8 items-center justify-center gap-1.5 rounded-lg border border-destructive/20 bg-destructive/10 text-[11px] font-bold text-destructive disabled:opacity-60"
+                            >
+                              <XCircle className="h-3.5 w-3.5" />
+                              <span>Reject Identity</span>
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Step 2: Volunteer Approval Actions */}
+                      <div className="space-y-1 pt-1">
+                        {!isIdentityVerified && (
+                          <p className="text-[10px] text-muted-foreground italic text-center">
+                            {isIdentityRejected
+                              ? "Identity rejected. Cannot approve as volunteer."
+                              : "Verify applicant identity before approving volunteer permissions."}
                           </p>
                         )}
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            disabled={processingUid === applicant.uid || !isIdentityVerified}
+                            onClick={() => handleDecision(applicant.uid, true)}
+                            title={
+                              !isIdentityVerified ? "Verify identity first" : "Approve volunteer"
+                            }
+                            className="press flex h-10 items-center justify-center gap-1.5 rounded-xl bg-safe text-xs font-bold text-white shadow-xs disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
+                            <CheckCircle2 className="h-4 w-4" />
+                            <span>Approve Volunteer</span>
+                          </button>
+                          <button
+                            type="button"
+                            disabled={processingUid === applicant.uid}
+                            onClick={() => {
+                              setRejectingUid(applicant.uid);
+                            }}
+                            className="press flex h-10 items-center justify-center gap-1.5 rounded-xl border border-destructive/20 bg-destructive/10 text-xs font-bold text-destructive disabled:opacity-60"
+                          >
+                            <XCircle className="h-4 w-4" />
+                            <span>Reject</span>
+                          </button>
+                        </div>
                       </div>
-                    )}
-
-                    {/* Actions: Approve / Reject */}
-                    <div className="grid grid-cols-2 gap-2 pt-1">
-                      <button
-                        type="button"
-                        disabled={processingUid === applicant.uid}
-                        onClick={() => handleDecision(applicant.uid, true)}
-                        className="press flex h-10 items-center justify-center gap-1.5 rounded-xl bg-safe text-xs font-bold text-white shadow-xs disabled:opacity-60"
-                      >
-                        <CheckCircle2 className="h-4 w-4" />
-                        <span>Approve Volunteer</span>
-                      </button>
-                      <button
-                        type="button"
-                        disabled={processingUid === applicant.uid}
-                        onClick={() => {
-                          setRejectingUid(applicant.uid);
-                        }}
-                        className="press flex h-10 items-center justify-center gap-1.5 rounded-xl border border-destructive/20 bg-destructive/10 text-xs font-bold text-destructive disabled:opacity-60"
-                      >
-                        <XCircle className="h-4 w-4" />
-                        <span>Reject</span>
-                      </button>
-                    </div>
-                  </Card>
-                ))
+                    </Card>
+                  );
+                })
               )
             ) : /* Approved Active Volunteers */
             loadingUsers ? (
@@ -2452,6 +2610,59 @@ function AdminScreen() {
                   type="button"
                   disabled={processingUid !== null}
                   onClick={() => handleDecision(rejectingUid, false, rejectReason)}
+                  className="press h-10 rounded-xl bg-destructive text-xs font-bold text-white shadow-xs disabled:opacity-60"
+                >
+                  Confirm Rejection
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* -------------------- MODAL: REJECT IDENTITY -------------------- */}
+      {rejectingIdentityUid && (
+        <div className="fixed inset-0 z-[1200] flex items-end sm:items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-[400px] rounded-3xl bg-surface p-5 shadow-2xl animate-fade-up">
+            <div className="flex items-center justify-between pb-3 border-b border-border/60">
+              <h3 className="text-sm font-extrabold text-navy">Reject Identity Verification</h3>
+              <button
+                type="button"
+                aria-label="Close dialog"
+                onClick={() => setRejectingIdentityUid(null)}
+                className="press rounded-full p-1 text-muted-foreground hover:bg-muted"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="mt-3 space-y-3">
+              <p className="text-xs text-muted-foreground">
+                Please provide an optional reason for rejecting this applicant's identity
+                verification.
+              </p>
+              <textarea
+                rows={3}
+                placeholder="e.g. NID number does not match submitted name/age records..."
+                value={rejectIdentityReason}
+                onChange={(e) => setRejectIdentityReason(e.target.value)}
+                className="w-full rounded-xl border border-border bg-card p-2.5 text-xs text-navy outline-none"
+              />
+
+              <div className="grid grid-cols-2 gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setRejectingIdentityUid(null)}
+                  className="press h-10 rounded-xl bg-muted text-xs font-bold text-navy"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={processingUid !== null}
+                  onClick={() =>
+                    handleIdentityDecision(rejectingIdentityUid, false, rejectIdentityReason)
+                  }
                   className="press h-10 rounded-xl bg-destructive text-xs font-bold text-white shadow-xs disabled:opacity-60"
                 >
                   Confirm Rejection

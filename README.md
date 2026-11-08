@@ -14,6 +14,7 @@
 **RescueLink** is a modern, high-resilience emergency response and disaster-relief platform engineered for Bangladesh. Developed as a software-only disaster management system, RescueLink connects citizens facing severe flooding, cyclones, waterlogging, building collapses, and natural disasters directly with emergency shelters, active responders, verified helplines, relief supplies, and volunteer teams in real time.
 
 The platform provides:
+
 - Immediate 3-step Emergency SOS submission with live status tracking (`active` → `assigned` → `resolved`).
 - Zero fabricated responses, fake units, or simulated ETAs.
 - Direct integration with Bangladesh's national `999` emergency hotline and offline phone fallback.
@@ -28,20 +29,20 @@ The platform provides:
 
 RescueLink uses a modern, unified full-stack TypeScript architecture:
 
-| Layer | Technology | Version / Specifications | Notes |
-| :--- | :--- | :--- | :--- |
-| **Framework** | [TanStack Start](https://tanstack.com/start) | `^1.168.32` | Full-stack SSR with file-based routing and route-level guards |
-| **Routing** | [TanStack Router](https://tanstack.com/router) | `^1.170.18` | Type-safe router, search parameter validation, and navigation lifecycle |
-| **UI Library** | [React](https://react.dev) | `^19.2.0` | React 19 concurrent features |
-| **Styling** | [Tailwind CSS v4](https://tailwindcss.com) | `^4.2.1` | Mobile-first emergency design system (`#E6293A` primary, `#0F172A` navy) |
-| **Typography** | Plus Jakarta Sans & Noto Sans Bengali | Google Fonts | Crisp Latin typography paired with native Bengali rendering |
-| **Icons & Primitives** | Radix UI + Lucide React | Modern primitives | Accessible dialogs, drawers, dropdowns, and alert badges |
-| **Database** | [Cloud Firestore](https://firebase.google.com/docs/firestore) | `^13.0.0` | Real-time listeners, transactions, and role-based security rules |
-| **Authentication** | [Firebase Authentication](https://firebase.google.com/docs/auth) | `^13.0.0` | Email/password, Google OAuth, local browser session persistence |
-| **Mobile Runtime** | [Capacitor](https://capacitorjs.com) | `^8.5.3` | Cross-platform Android wrapper, native geolocation, and social login |
-| **Maps & GIS** | [Leaflet](https://leafletjs.com) + OpenStreetMap | `^1.9.4` | OpenStreetMap tiles, Nominatim reverse geocoding, Overpass API |
-| **Build & SSR** | [Vite](https://vitejs.dev) + [Nitro](https://nitro.unjs.io) | `v8.2.2` / `3.0.260603-beta` | Dual-build: Nitro Cloudflare SSR worker for web, static bundle for mobile |
-| **Testing** | [Vitest](https://vitest.dev) | `^3.2.7` | 32 test suites, 662 automated unit/integration tests |
+| Layer                  | Technology                                                       | Version / Specifications     | Notes                                                                     |
+| :--------------------- | :--------------------------------------------------------------- | :--------------------------- | :------------------------------------------------------------------------ |
+| **Framework**          | [TanStack Start](https://tanstack.com/start)                     | `^1.168.32`                  | Full-stack SSR with file-based routing and route-level guards             |
+| **Routing**            | [TanStack Router](https://tanstack.com/router)                   | `^1.170.18`                  | Type-safe router, search parameter validation, and navigation lifecycle   |
+| **UI Library**         | [React](https://react.dev)                                       | `^19.2.0`                    | React 19 concurrent features                                              |
+| **Styling**            | [Tailwind CSS v4](https://tailwindcss.com)                       | `^4.2.1`                     | Mobile-first emergency design system (`#E6293A` primary, `#0F172A` navy)  |
+| **Typography**         | Plus Jakarta Sans & Noto Sans Bengali                            | Google Fonts                 | Crisp Latin typography paired with native Bengali rendering               |
+| **Icons & Primitives** | Radix UI + Lucide React                                          | Modern primitives            | Accessible dialogs, drawers, dropdowns, and alert badges                  |
+| **Database**           | [Cloud Firestore](https://firebase.google.com/docs/firestore)    | `^13.0.0`                    | Real-time listeners, transactions, and role-based security rules          |
+| **Authentication**     | [Firebase Authentication](https://firebase.google.com/docs/auth) | `^13.0.0`                    | Email/password, Google OAuth, local browser session persistence           |
+| **Mobile Runtime**     | [Capacitor](https://capacitorjs.com)                             | `^8.5.3`                     | Cross-platform Android wrapper, native geolocation, and social login      |
+| **Maps & GIS**         | [Leaflet](https://leafletjs.com) + OpenStreetMap                 | `^1.9.4`                     | OpenStreetMap tiles, Nominatim reverse geocoding, Overpass API            |
+| **Build & SSR**        | [Vite](https://vitejs.dev) + [Nitro](https://nitro.unjs.io)      | `v8.2.2` / `3.0.260603-beta` | Dual-build: Nitro Cloudflare SSR worker for web, static bundle for mobile |
+| **Testing**            | [Vitest](https://vitest.dev)                                     | `^3.2.7`                     | 32 test suites, 662 automated unit/integration tests                      |
 
 ---
 
@@ -114,7 +115,7 @@ rescuelink/
 Before setting up RescueLink, ensure your development environment satisfies:
 
 - **Node.js**: `v20.x` or higher (Active LTS recommended)
-- **Package Manager**: `npm` (`v10.x` or higher) — *RescueLink standardizes strictly on npm*
+- **Package Manager**: `npm` (`v10.x` or higher) — _RescueLink standardizes strictly on npm_
 - **Java Development Kit (JDK)**: JDK 17 (Required only for Android builds)
 - **Android Studio**: Ladybug / Meerkat or newer with Android SDK Platform 34+ (For mobile builds)
 - **Firebase CLI**: `npm install -g firebase-tools` (For deploying Firestore security rules)
@@ -125,6 +126,7 @@ Before setting up RescueLink, ensure your development environment satisfies:
 ## 5. Installation Instructions
 
 1. Clone the repository:
+
    ```bash
    git clone https://github.com/jayedrjp/RescueLink.git
    cd RescueLink
@@ -134,13 +136,14 @@ Before setting up RescueLink, ensure your development environment satisfies:
    ```bash
    npm install
    ```
-   *Note: RescueLink uses `package-lock.json` as its single authoritative lockfile. Do not run `bun install` or `yarn install`.*
+   _Note: RescueLink uses `package-lock.json` as its single authoritative lockfile. Do not run `bun install` or `yarn install`._
 
 ---
 
 ## 6. Environment Configuration
 
 1. Create a `.env` file in the project root by copying the template:
+
    ```bash
    cp .env.example .env
    ```
@@ -173,11 +176,13 @@ Before setting up RescueLink, ensure your development environment satisfies:
 ## 7. Development Server
 
 Start the local development server with Vite:
+
 ```bash
 npm run dev
 ```
 
 The application will be accessible at:
+
 ```
 http://localhost:3000
 ```
@@ -189,15 +194,18 @@ Hot Module Replacement (HMR) and TanStack file routing are active automatically.
 ## 8. Web Production Build
 
 Compile the production-ready full-stack application:
+
 ```bash
 npm run build
 ```
 
 This compiles:
+
 - The client assets into `.output/public/`
 - The server Nitro bundle into `.output/server/`
 
 To preview the production build locally:
+
 ```bash
 npm run preview
 ```
@@ -209,17 +217,21 @@ npm run preview
 RescueLink is fully configured with Capacitor for native Android deployment:
 
 1. **Build mobile web assets:**
+
    ```bash
    npm run build:mobile
    ```
-   *This compiles the SPA distribution bundle into `dist/`.*
+
+   _This compiles the SPA distribution bundle into `dist/`._
 
 2. **Sync web assets to the Android native project:**
+
    ```bash
    npx cap sync android
    ```
 
 3. **Open the native project in Android Studio:**
+
    ```bash
    npx cap open android
    ```
@@ -229,7 +241,7 @@ RescueLink is fully configured with Capacitor for native Android deployment:
    cd android
    ./gradlew assembleRelease
    ```
-   *The signed release APK will be generated at `android/app/build/outputs/apk/release/app-release.apk`.*
+   _The signed release APK will be generated at `android/app/build/outputs/apk/release/app-release.apk`._
 
 ---
 
@@ -253,11 +265,13 @@ RescueLink is fully configured with Capacitor for native Android deployment:
 ## 11. Firestore Rules & Security Deployment
 
 RescueLink enforces zero-trust, role-based access control inside `firestore.rules`:
+
 - Citizens can only edit their own profile and create legitimate SOS requests.
 - Administrators can never be created or demoted from client mutations.
 - Volunteers are only trusted when `role == 'volunteer' && volunteerStatus == 'approved'`.
 
 ### Deploy Security Rules:
+
 ```bash
 # Login to Firebase
 npx firebase login
@@ -270,6 +284,7 @@ npx firebase deploy --only firestore:rules
 ```
 
 ### Run Local Rules Verification Suite:
+
 ```bash
 # Runs test suite against local Firestore emulator
 npm run test:rules
@@ -280,6 +295,7 @@ npm run test:rules
 ## 12. Map Implementation & Data Sources
 
 RescueLink uses an open, cost-effective GIS architecture:
+
 - **Leaflet 1.9.4:** Lightweight interactive map rendering.
 - **OpenStreetMap Tiles:** Standard cartographic tiles loaded asynchronously with offline tile caching.
 - **Overpass API Integration:** Queries live emergency facilities (hospitals, fire stations, police stations) with bounding box limits (max 50 nodes) and client-side debouncing to prevent rate limiting.

@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   Clock,
   HeartHandshake,
@@ -17,6 +17,7 @@ import { Card, Screen, SectionHeader, TopBar } from "@/components/rl";
 import { tasks, type Task } from "@/lib/data";
 import { useAuth } from "@/context/AuthContext";
 import { submitVolunteerApplication } from "@/lib/firebase/firestore";
+import { calculateAge, isAgeEligible, isValidNid } from "@/lib/volunteer/volunteer-verification";
 
 export const Route = createFileRoute("/volunteer")({
   head: () => ({
@@ -71,7 +72,24 @@ function VolunteerScreen() {
   ]);
   const [areaInput, setAreaInput] = useState(profile?.area || "Dhaka");
   const [notesInput, setNotesInput] = useState("");
+  const [dobInput, setDobInput] = useState("");
+  const [nidInput, setNidInput] = useState("");
   const [termsAgreed, setTermsAgreed] = useState(false);
+
+  const calculatedAge = useMemo(() => {
+    return calculateAge(dobInput);
+  }, [dobInput]);
+
+  const isAgeValid = useMemo(() => {
+    return isAgeEligible(calculatedAge);
+  }, [calculatedAge]);
+
+  const ageDisplay = useMemo(() => {
+    if (!dobInput) return "Select Date of Birth";
+    if (calculatedAge === null) return "Invalid date";
+    return `${calculatedAge} years old`;
+  }, [dobInput, calculatedAge]);
+
   const tasksKey = user ? `rl_volunteer_tasks_${user.uid}` : "rl_volunteer_tasks_guest";
   const [accepted, setAccepted] = useState<string[]>(() => {
     if (typeof window === "undefined") return [];
@@ -95,13 +113,28 @@ function VolunteerScreen() {
       return;
     }
 
-    if (selectedSkills.length === 0) {
-      toast.error("Please select at least one relief skill.");
+    if (!dobInput.trim()) {
+      toast.error("Please provide your date of birth.");
+      return;
+    }
+
+    if (calculatedAge === null || !isAgeValid) {
+      toast.error("Volunteer applicants must be between 18 and 30 years of age (inclusive).");
+      return;
+    }
+
+    if (!isValidNid(nidInput)) {
+      toast.error("NID number must be exactly 10 numeric digits.");
       return;
     }
 
     if (!areaInput.trim()) {
       toast.error("Please specify your operational district or area.");
+      return;
+    }
+
+    if (selectedSkills.length === 0) {
+      toast.error("Please select at least one relief skill.");
       return;
     }
 
@@ -116,6 +149,8 @@ function VolunteerScreen() {
         area: areaInput.trim(),
         skills: selectedSkills,
         notes: notesInput.trim(),
+        dateOfBirth: dobInput.trim(),
+        nid: nidInput.trim(),
       });
       await refreshProfile();
       setShowApplyForm(false);
@@ -124,7 +159,11 @@ function VolunteerScreen() {
       });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Submission failed";
-      toast.error("Application error", { description: msg });
+      if (msg.includes("This NID number is already registered")) {
+        toast.error("This NID number is already registered.");
+      } else {
+        toast.error("Application error", { description: msg });
+      }
     } finally {
       setApplying(false);
     }
@@ -192,11 +231,8 @@ function VolunteerScreen() {
           </div>
         </div>
       ) : !isVolunteerApproved ? (
-        <div className="animate-fade-up px-5 pt-8 text-center">
-          <span className="mx-auto grid h-20 w-20 place-items-center rounded-3xl bg-safe/10">
-            <HeartHandshake className="h-9 w-9 text-safe" />
-          </span>
-          <h2 className="mt-6 text-[24px] font-extrabold leading-tight text-navy">
+        <div className="animate-fade-up px-5 pt-5 text-center">
+          <h2 className="text-[24px] font-extrabold leading-tight text-navy">
             Help Your Community
           </h2>
           <p className="mx-auto mt-2 max-w-[300px] text-sm leading-relaxed text-muted-foreground">
@@ -236,8 +272,78 @@ function VolunteerScreen() {
 
               <div className="mt-4 space-y-3.5">
                 <div>
+                  <label htmlFor="volunteer-dob" className="text-[11.5px] font-bold text-navy">
+                    Date of Birth: <span className="text-destructive">*</span>
+                  </label>
+                  <input
+                    id="volunteer-dob"
+                    type="date"
+                    required
+                    value={dobInput}
+                    onChange={(e) => setDobInput(e.target.value)}
+                    max={new Date().toISOString().split("T")[0]}
+                    className="mt-1 w-full rounded-xl border border-border bg-surface px-3 py-2 text-xs text-navy outline-none focus:border-navy/50"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="volunteer-age" className="text-[11.5px] font-bold text-navy">
+                    Calculated Age:
+                  </label>
+                  <input
+                    id="volunteer-age"
+                    type="text"
+                    readOnly
+                    tabIndex={-1}
+                    value={ageDisplay}
+                    className={`mt-1 w-full rounded-xl border border-border bg-muted/40 px-3 py-2 text-xs font-semibold outline-none cursor-not-allowed ${
+                      calculatedAge === null
+                        ? "text-muted-foreground"
+                        : isAgeValid
+                          ? "text-safe"
+                          : "text-destructive"
+                    }`}
+                  />
+                  {calculatedAge !== null && !isAgeValid && (
+                    <p className="mt-1 text-[11px] font-semibold text-destructive">
+                      {calculatedAge < 18
+                        ? "Applicants must be at least 18 years old to apply (Eligible: 18–30)."
+                        : "Applicants must be 30 years old or younger to apply (Eligible: 18–30)."}
+                    </p>
+                  )}
+                  {calculatedAge !== null && isAgeValid && (
+                    <p className="mt-1 text-[11px] font-medium text-safe">
+                      Eligible age range (18–30 years).
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label htmlFor="volunteer-nid" className="text-[11.5px] font-bold text-navy">
+                    NID Number: <span className="text-destructive">*</span>
+                  </label>
+                  <input
+                    id="volunteer-nid"
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={10}
+                    required
+                    placeholder="Enter 10-digit numeric NID"
+                    value={nidInput}
+                    onChange={(e) => {
+                      const numericOnly = e.target.value.replace(/\D/g, "").slice(0, 10);
+                      setNidInput(numericOnly);
+                    }}
+                    className="mt-1 w-full rounded-xl border border-border bg-surface px-3 py-2 text-xs text-navy outline-none focus:border-navy/50"
+                  />
+                  <p className="mt-1 text-[10.5px] text-muted-foreground">
+                    Must be exactly 10 numeric digits. Stored securely and masked for privacy.
+                  </p>
+                </div>
+
+                <div>
                   <label className="text-[11.5px] font-bold text-navy">
-                    Operational Area / District:
+                    Operational Area / District: <span className="text-destructive">*</span>
                   </label>
                   <input
                     type="text"

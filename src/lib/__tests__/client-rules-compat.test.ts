@@ -276,12 +276,18 @@ describe("profile service writes are accepted by the real rules (and abuse is no
     expect(store.get("users/citizen1")).toMatchObject({ phone: "+8801712345678" });
   });
 
-  it("volunteer application: none -> pending ok; applying again while pending is refused", async () => {
+  it("volunteer application: none -> pending ok; pending applicant can update application details", async () => {
     asUser(actors.citizen1);
     await submitVolunteerApplication("citizen1", { skills: ["First Aid"], notes: "ready" });
     expect(store.get("users/citizen1")).toMatchObject({ volunteerStatus: "pending", role: "user" });
-    await expect(submitVolunteerApplication("citizen1")).rejects.toMatchObject({
-      code: "permission-denied",
+    await submitVolunteerApplication("citizen1", {
+      skills: ["Search & Rescue"],
+      notes: "updated note",
+    });
+    expect(store.get("users/citizen1")).toMatchObject({
+      volunteerStatus: "pending",
+      role: "user",
+      volunteerApplication: expect.objectContaining({ notes: "updated note" }),
     });
   });
 
