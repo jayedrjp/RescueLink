@@ -1,6 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { HandCoins, Package, ShieldCheck, Check } from "lucide-react";
+import { HandCoins, Package, ShieldCheck, Check, LogIn } from "lucide-react";
 import { toast } from "sonner";
 
 import { Card, Screen, SectionHeader, TopBar, shelterImages } from "@/components/rl";
@@ -31,7 +31,7 @@ const amounts = [500, 1000, 2500, 5000];
 const supplyOptions = ["Food", "Water", "Medicine", "Blankets", "Emergency Supplies"];
 
 function DonateScreen() {
-  const { user, profile } = useAuth();
+  const { user, profile, isAuthenticated } = useAuth();
   const [availableShelters, setAvailableShelters] = useState<Shelter[]>(() => getStoredShelters());
   const [mode, setMode] = useState<"money" | "supplies">("money");
   const [amount, setAmount] = useState(1000);
@@ -59,22 +59,32 @@ function DonateScreen() {
 
   const handleSubmit = async () => {
     if (!canSubmit || isSubmitting) return;
+    if (!isAuthenticated || !user) {
+      toast.error("Please sign in to donate.");
+      return;
+    }
     setIsSubmitting(true);
     try {
+      const donorUid = user.uid;
+      const donorName =
+        profile?.displayName ||
+        user.displayName ||
+        user.email?.split("@")[0] ||
+        "RescueLink Citizen";
+      const donorEmail = profile?.email || user.email || "";
+
       if (mode === "money") {
-        if (user) {
-          try {
-            const key = `rl_donations_${user.uid}`;
-            const prev = Number(localStorage.getItem(key)) || 0;
-            localStorage.setItem(key, JSON.stringify(prev + amount));
-          } catch {
-            // ignore
-          }
+        try {
+          const key = `rl_donations_${donorUid}`;
+          const prev = Number(localStorage.getItem(key)) || 0;
+          localStorage.setItem(key, JSON.stringify(prev + amount));
+        } catch {
+          // ignore
         }
         await recordDonation({
-          donorName: profile?.displayName || user?.displayName || "Anonymous Donor",
-          donorEmail: profile?.email || user?.email || "citizen@rescuelink.org",
-          ...(user?.uid ? { donorUid: user.uid } : {}),
+          donorName,
+          donorEmail,
+          donorUid,
           type: "money",
           amount,
           shelterId: target,
@@ -88,9 +98,9 @@ function DonateScreen() {
         });
       } else {
         await recordDonation({
-          donorName: profile?.displayName || user?.displayName || "Anonymous Donor",
-          donorEmail: profile?.email || user?.email || "citizen@rescuelink.org",
-          ...(user?.uid ? { donorUid: user.uid } : {}),
+          donorName,
+          donorEmail,
+          donorUid,
           type: "supplies",
           items: supplyItems,
           shelterId: target,
@@ -249,14 +259,34 @@ function DonateScreen() {
             Shelters are verified by local disaster management authorities.
           </p>
         </Card>
-        <button
-          type="button"
-          onClick={handleSubmit}
-          disabled={!canSubmit}
-          className="press mt-4 h-14 w-full rounded-2xl bg-safe text-[15px] font-bold text-safe-foreground shadow-[var(--shadow-card)] disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {mode === "money" ? `Donate ৳${amount}` : "Schedule Supply Pickup"}
-        </button>
+
+        {!isAuthenticated ? (
+          <Card className="mt-4 border-warn/30 bg-warn/10 p-4 text-center">
+            <p className="text-[14px] font-bold text-navy">Authentication Required</p>
+            <p className="mt-1 text-[12.5px] text-muted-foreground">
+              Please sign in to donate money or relief supplies to verified shelters.
+            </p>
+            <Link
+              to="/login"
+              className="press mt-3 inline-flex items-center justify-center gap-1.5 rounded-2xl bg-navy px-5 py-3 text-[14px] font-bold text-white shadow-xs"
+            >
+              <LogIn className="h-4 w-4" /> Sign In to Donate
+            </Link>
+          </Card>
+        ) : (
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={!canSubmit || isSubmitting}
+            className="press mt-4 h-14 w-full rounded-2xl bg-safe text-[15px] font-bold text-safe-foreground shadow-[var(--shadow-card)] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isSubmitting
+              ? "Recording..."
+              : mode === "money"
+                ? `Donate ৳${amount}`
+                : "Schedule Supply Pickup"}
+          </button>
+        )}
       </div>
     </Screen>
   );

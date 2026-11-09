@@ -7,6 +7,7 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["src/**/*.emulator.test.ts"],
+    fileParallelism: false,
     testTimeout: 20000,
     hookTimeout: 30000,
   },

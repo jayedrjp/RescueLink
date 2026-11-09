@@ -59,6 +59,7 @@ function VolunteerScreen() {
     user,
     profile,
     isAuthenticated,
+    isAdmin,
     isVolunteerApproved,
     isVolunteerPending,
     refreshProfile,
@@ -110,6 +111,11 @@ function VolunteerScreen() {
   const handleApply = async () => {
     if (!user) {
       toast.error("Please sign in first to apply as a volunteer.");
+      return;
+    }
+
+    if (isAdmin) {
+      toast.error("Administrator accounts cannot apply as volunteers.");
       return;
     }
 
@@ -228,6 +234,16 @@ function VolunteerScreen() {
             >
               Create Account
             </Link>
+          </div>
+        </div>
+      ) : isAdmin ? (
+        <div className="animate-fade-up px-5 pt-8 text-center">
+          <div className="rounded-3xl border border-border/80 bg-card p-6 text-center shadow-sm">
+            <AlertCircle className="mx-auto h-10 w-10 text-warn-foreground" />
+            <h3 className="mt-3 text-base font-bold text-navy">Administrator Account</h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Administrator accounts cannot apply as volunteers.
+            </p>
           </div>
         </div>
       ) : !isVolunteerApproved ? (

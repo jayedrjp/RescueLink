@@ -302,6 +302,30 @@ describe("Volunteer Eligibility & NID Identity Verification", () => {
       }
     });
 
+    it("strictly prevents administrator accounts from applying as volunteers", async () => {
+      mockStore.set("users/admin-user", {
+        path: "users/admin-user",
+        data: { uid: "admin-user", role: "admin", volunteerStatus: "none" },
+      });
+
+      // Attempt with DOB and NID
+      await expect(
+        submitVolunteerApplication("admin-user", {
+          dateOfBirth: "2000-01-01",
+          nid: "1234567890",
+          area: "Dhaka",
+        }),
+      ).rejects.toThrowError("Administrator accounts cannot apply as volunteers.");
+
+      // Attempt without DOB and NID (fallback branch)
+      await expect(
+        submitVolunteerApplication("admin-user", {
+          area: "Dhaka",
+          skills: ["First Aid"],
+        }),
+      ).rejects.toThrowError("Administrator accounts cannot apply as volunteers.");
+    });
+
     it("case 12 & 13: new applications remain pending identity verification; unverified applicants cannot receive volunteer permissions", async () => {
       mockStore.set("users/applicant-pending", {
         path: "users/applicant-pending",

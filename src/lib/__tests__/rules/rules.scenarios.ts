@@ -88,6 +88,7 @@ export const donationDoc = (over: Doc = {}): Doc => {
     id: "d1",
     donorName: "Rahim",
     donorEmail: "rahim@example.com",
+    donorUid: "citizen1",
     type: "money",
     amount: 500,
     shelterId: "mirpur",
@@ -466,6 +467,18 @@ export const scenarios: Scenario[] = [
     withUser("citizen1", {
       volunteerStatus: "pending",
       volunteerApplication: { appliedAt: T1, role: "admin" },
+      updatedAt: T1,
+    }),
+  ),
+  u(
+    "users: admin cannot apply as volunteer",
+    actors.admin1,
+    "update",
+    "users/admin1",
+    "deny",
+    withUser("admin1", {
+      volunteerStatus: "pending",
+      volunteerApplication: { appliedAt: T1, skills: ["First Aid"], area: "Dhaka", notes: "" },
       updatedAt: T1,
     }),
   ),
@@ -1452,20 +1465,20 @@ export const scenarios: Scenario[] = [
   u("alerts: admin can write", actors.admin1, "create", "alerts/a1", "allow", { title: "x" }),
   // ---------------------------------------------------------------- donations
   u(
-    "donations: anonymous valid money donation allowed",
+    "donations: anonymous valid money donation denied",
     null,
     "create",
-    "donations/d1",
-    "allow",
-    donationDoc(),
+    "donations/d-new-anon",
+    "deny",
+    donationDoc({ id: "d-new-anon", donorUid: undefined }),
   ),
   u(
     "donations: authenticated valid money donation with matching donorUid allowed",
     actors.citizen1,
     "create",
-    "donations/d1",
+    "donations/d-new-auth",
     "allow",
-    donationDoc({ donorUid: "citizen1" }),
+    donationDoc({ id: "d-new-auth", donorUid: "citizen1" }),
   ),
   u(
     "donations: authenticated valid supplies donation allowed",

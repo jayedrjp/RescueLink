@@ -145,7 +145,7 @@ function AdminReportsScreen() {
   // ADM-7: single authoritative definition of approved volunteers
   const approvedVolunteers = useMemo(() => users.filter(isApprovedVolunteer), [users]);
   const pendingApplicants = useMemo(
-    () => users.filter((u) => u.volunteerStatus === "pending"),
+    () => users.filter((u) => u.role === "user" && u.volunteerStatus === "pending"),
     [users],
   );
 

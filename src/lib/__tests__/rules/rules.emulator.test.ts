@@ -30,7 +30,7 @@ import { scenarios, seed } from "./rules.scenarios";
 let env: RulesTestEnvironment;
 
 beforeAll(async () => {
-  const [host, port] = (process.env["FIRESTORE_EMULATOR_HOST"] ?? "127.0.0.1:8080").split(":");
+  const [host, port] = (process.env["FIRESTORE_EMULATOR_HOST"] ?? "127.0.0.1:8085").split(":");
   env = await initializeTestEnvironment({
     projectId: "demo-rescuelink",
     firestore: {

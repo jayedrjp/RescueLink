@@ -348,6 +348,19 @@ describe("Phase 7: Administration, Volunteers & Responders (ADM-1 to ADM-8)", ()
       // Verify that admins are NOT counted as community volunteers
       expect(verifiedVolunteers.some((u) => u.uid === "u6" || u.uid === "u7")).toBe(false);
     });
+
+    it("strictly excludes administrators from pending volunteer applications", () => {
+      const usersWithAdminPending: Partial<UserProfile>[] = [
+        ...mockUsers,
+        { uid: "admin-pending", role: "admin", volunteerStatus: "pending" },
+      ];
+      const pendingApplicants = usersWithAdminPending.filter(
+        (u) => u.role === "user" && u.volunteerStatus === "pending",
+      );
+      expect(pendingApplicants).toHaveLength(1);
+      expect(pendingApplicants[0]?.uid).toBe("u4");
+      expect(pendingApplicants.some((u) => u.uid === "admin-pending")).toBe(false);
+    });
   });
 
   // ---------------------------------------------------------------------------

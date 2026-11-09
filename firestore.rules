@@ -137,6 +137,7 @@ service cloud.firestore {
         ) || (
           changed.hasOnly(['volunteerStatus', 'volunteerApplication', 'updatedAt'])
           && changed.hasAny(['volunteerStatus', 'volunteerApplication'])
+          && resource.data.get('role', '') != 'admin'
           && d.volunteerStatus == 'pending'
           && resource.data.get('volunteerStatus', 'none') in ['none', 'rejected', 'pending']
           && validVolunteerApplication(d.volunteerApplication)
@@ -219,14 +220,15 @@ service cloud.firestore {
 
     function validNewDonation(donationId) {
       let d = request.resource.data;
-      return d.keys().hasAll(['id', 'donorName', 'donorEmail', 'type', 'shelterId', 'shelterName', 'date', 'status'])
+      return d.keys().hasAll(['id', 'donorName', 'donorEmail', 'donorUid', 'type', 'shelterId', 'shelterName', 'date', 'status'])
         && d.keys().hasOnly(['id', 'donorName', 'donorEmail', 'donorUid', 'type', 'amount', 'items', 'shelterId', 'shelterName', 'date', 'status'])
         && d.id == donationId
         && isStr(d.id, 1, 128)
         && isStr(d.donorName, 1, 100)
         && d.donorEmail is string
         && d.donorEmail.size() <= 254
-        && (!('donorUid' in d) || (isSignedIn() && d.donorUid == request.auth.uid))
+        && isSignedIn()
+        && d.donorUid == request.auth.uid
         && d.type in ['money', 'supplies']
         && isStr(d.shelterId, 1, 100)
         && isStr(d.shelterName, 1, 200)
@@ -253,7 +255,7 @@ service cloud.firestore {
 
     match /donations/{donationId} {
       // Donors may create donation pledges or records; admins review them.
-      allow create: if validNewDonation(donationId);
+      allow create: if isSignedIn() && validNewDonation(donationId);
       allow get: if isAdmin() || (isSignedIn() && resource.data.get('donorUid', '') == request.auth.uid);
       allow list: if isAdmin();
       allow update, delete: if isAdmin();

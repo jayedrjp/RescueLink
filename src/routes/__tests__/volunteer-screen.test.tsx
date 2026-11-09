@@ -85,6 +85,26 @@ const asCitizen = () => {
   setAuthSnapshot({ ready: true, isAuthenticated: true, isAdmin: false });
 };
 
+const asAdmin = () => {
+  Object.assign(h.auth, {
+    user: { uid: "admin-1" },
+    profile: {
+      uid: "admin-1",
+      role: "admin",
+      displayName: "Commander Admin",
+      email: "admin@rescuelink.org",
+      volunteerStatus: "none",
+      area: "Dhaka Central",
+    },
+    isAuthenticated: true,
+    isAdmin: true,
+    isVolunteerApproved: false,
+    isVolunteerPending: false,
+    role: "admin",
+  });
+  setAuthSnapshot({ ready: true, isAuthenticated: true, isAdmin: true });
+};
+
 beforeEach(() => {
   resetAuthSnapshot();
   vi.spyOn(console, "error").mockImplementation(() => {});
@@ -256,5 +276,27 @@ describe("Volunteer Screen UI & Form Updates", () => {
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith("This NID number is already registered.");
     });
+  });
+
+  it("prevents administrator accounts from seeing or submitting the volunteer application form", async () => {
+    asAdmin();
+    const { router } = createTestRouter(["/volunteer"]);
+    render(<AppUnderTest router={router} />);
+
+    expect(
+      await screen.findByText(/administrator accounts cannot apply as volunteers/i),
+    ).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /apply to become a volunteer/i })).toBeNull();
+  });
+
+  it("prevents administrator accounts from seeing or submitting the volunteer application form", async () => {
+    asAdmin();
+    const { router } = createTestRouter(["/volunteer"]);
+    render(<AppUnderTest router={router} />);
+
+    expect(
+      await screen.findByText(/administrator accounts cannot apply as volunteers/i),
+    ).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /apply to become a volunteer/i })).toBeNull();
   });
 });

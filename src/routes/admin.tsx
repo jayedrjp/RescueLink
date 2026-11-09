@@ -277,7 +277,7 @@ function AdminScreen() {
 
   // Derived user categories - ADM-7: single consistent definition of approved volunteers
   const pendingApplicants = useMemo(
-    () => users.filter((u) => u.volunteerStatus === "pending"),
+    () => users.filter((u) => u.role === "user" && u.volunteerStatus === "pending"),
     [users],
   );
   const approvedVolunteers = useMemo(() => users.filter(isApprovedVolunteer), [users]);

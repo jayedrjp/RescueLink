@@ -12,7 +12,7 @@ import {
   runTransaction,
   getDocFromServer,
 } from "firebase/firestore";
-import { db } from "./config";
+import { db, auth } from "./config";
 import type {
   UserProfile,
   UserRole,
@@ -352,7 +352,7 @@ export async function submitVolunteerApplication(
         }
         const curUser = userSnap.data() as UserProfile;
         if (curUser.role === "admin") {
-          throw new Error("Cannot alter volunteer status or demote an administrator.");
+          throw new Error("Administrator accounts cannot apply as volunteers.");
         }
         if (curUser.volunteerStatus === "approved") {
           throw new Error("You are already an approved volunteer.");
@@ -392,6 +392,7 @@ export async function submitVolunteerApplication(
         // Preserve intentional application-level errors
         if (
           err.message.includes("Target user profile does not exist") ||
+          err.message.includes("Administrator accounts cannot apply as volunteers") ||
           err.message.includes("Cannot alter volunteer status") ||
           err.message.includes("You are already an approved volunteer") ||
           err.message.includes("This NID number is already registered")
@@ -426,6 +427,15 @@ export async function submitVolunteerApplication(
   }
 
   // Graceful fallback for legacy test callers without DOB/NID
+  const userSnap = await getDoc(userRef);
+  if (!userSnap.exists()) {
+    throw new Error("Target user profile does not exist.");
+  }
+  const curUser = userSnap.data() as UserProfile;
+  if (curUser.role === "admin") {
+    throw new Error("Administrator accounts cannot apply as volunteers.");
+  }
+
   await updateDoc(userRef, {
     volunteerStatus: "pending" as VolunteerStatus,
     volunteerApplication: {
@@ -2013,11 +2023,20 @@ export async function deleteAlert(alertId: string): Promise<void> {
 export async function recordDonation(
   record: Omit<DonationRecord, "id"> & { id?: string },
 ): Promise<DonationRecord> {
+  if (!auth?.currentUser) {
+    throw new Error("Authentication required to record a donation.");
+  }
+  const currentUid = auth.currentUser.uid;
+  if (record.donorUid && record.donorUid !== currentUid) {
+    throw new Error("Authenticated user cannot record donation for another user.");
+  }
+
   const donationId = record.id || `don-${Date.now()}`;
   const now = new Date().toISOString();
   const normalized: DonationRecord = {
     ...record,
     id: donationId,
+    donorUid: currentUid,
     date: record.date || now,
     status: record.status || (record.type === "money" ? "completed" : "pledged"),
   };
